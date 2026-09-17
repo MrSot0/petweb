@@ -1,0 +1,80 @@
+---
+const links = [
+  { href: '#productos', label: 'Productos' },
+  { href: '#servicios', label: 'Servicios' },
+  { href: '#contacto', label: 'Contacto' },
+];
+---
+
+<header class="sticky top-0 z-50 bg-[#FCFCFC]/80 backdrop-blur-md border-b border-[#256EFF]/10 shadow-sm transition-all duration-300">
+  <nav class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+    <a href="#top" class="font-display text-2xl font-extrabold tracking-tight text-[#256EFF] flex items-center gap-2 group">
+      <span class="p-2 rounded-xl bg-[#256EFF]/10 group-hover:bg-[#256EFF] group-hover:text-white transition-all duration-300">🐾</span>
+      Pet<span class="text-[#840032]">Web</span>
+    </a>
+
+    <ul class="hidden md:flex items-center gap-8 font-medium text-[#840032]/80">
+      {links.map((link) => (
+        <li>
+          <a href={link.href} class="relative py-1 hover:text-[#256EFF] transition-colors font-medium after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-[#3DDC97] hover:after:w-full after:transition-all">
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <a
+      href="#contacto"
+      class="hidden md:inline-flex items-center rounded-2xl bg-[#256EFF] text-[#FCFCFC] px-6 py-2.5 font-medium shadow-lg shadow-[#256EFF]/25 hover:bg-[#256EFF]/90 hover:scale-105 transition-all duration-300"
+    >
+      Escríbenos
+    </a>
+
+    <!-- Menú móvil -->
+    <button
+      id="menu-toggle"
+      class="md:hidden p-2.5 rounded-xl bg-[#256EFF]/10 text-[#256EFF] hover:bg-[#256EFF]/25 transition-colors"
+      aria-label="Abrir menú"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+    >
+      <svg id="icon-open" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+      <svg id="icon-close" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </nav>
+
+  <ul id="mobile-menu" class="md:hidden hidden flex-col gap-2 px-6 pb-6 pt-2 bg-[#FCFCFC] border-b border-[#256EFF]/10 shadow-xl font-medium text-[#840032]">
+    {links.map((link) => (
+      <li>
+        <a href={link.href} class="block py-3 px-4 rounded-xl hover:bg-[#256EFF]/10 hover:text-[#256EFF] transition-colors">
+          {link.label}
+        </a>
+      </li>
+    ))}
+    <li class="pt-2">
+      <a href="#contacto" class="block text-center rounded-xl bg-[#256EFF] text-[#FCFCFC] py-3 font-medium shadow-md">
+        Escríbenos
+      </a>
+    </li>
+  </ul>
+</header>
+
+<script>
+  const toggle = document.getElementById('menu-toggle');
+  const menu = document.getElementById('mobile-menu');
+  const iconOpen = document.getElementById('icon-open');
+  const iconClose = document.getElementById('icon-close');
+
+  toggle?.addEventListener('click', () => {
+    const isOpen = !menu?.classList.contains('hidden');
+    menu?.classList.toggle('hidden');
+    menu?.classList.toggle('flex');
+    iconOpen?.classList.toggle('hidden');
+    iconClose?.classList.toggle('hidden');
+    toggle.setAttribute('aria-expanded', String(!isOpen));
+  });
+</script>

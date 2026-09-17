@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Work+Sans:wght@400;500;600&display=swap');
+
+@theme {
+  --color-digital-blue: #256EFF;
+  --color-dark-amaranth: #840032;
+  --color-emerald: #3DDC97;
+  --color-pure-white: #FCFCFC;
+  --color-hot-fuchsia: #FF495C;
+
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bone);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Textura sutil tipo "huella" para separar secciones sin usar cards genéricas */
+.paw-divider {
+  background-image: radial-gradient(var(--color-ink) 0.6px, transparent 0.6px);
+  background-size: 14px 14px;
+  opacity: 0.06;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

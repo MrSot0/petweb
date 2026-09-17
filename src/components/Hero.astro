@@ -1,0 +1,86 @@
+---
+// Lista de imágenes de prueba para el carrusel de la tienda de mascotas
+const backgroundImages = [
+  "https://images.unsplash.com/photo-1548767797-d8c844163c4c?q=80&w=1920&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?q=80&w=1920&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?q=80&w=1920&auto=format&fit=crop"
+];
+---
+
+<section class="relative flex h-[calc(100vh-5rem)] w-full items-center justify-center bg-[#256EFF] px-6 overflow-hidden text-center">
+  
+  <!-- Contenedor del Carrusel de Imágenes con Fade -->
+  <div class="absolute inset-0 z-0">
+    {backgroundImages.map((img, index) => (
+      <div 
+        class={`hero-slide absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === 0 ? 'opacity-100' : 'opacity-0'}`}
+      >
+        <img 
+          src={img} 
+          alt={`Slide de fondo ${index + 1}`} 
+          class="h-full w-full object-cover scale-105"
+        />
+      </div>
+    ))}
+
+    <!-- Capas de transparencia y gradiente con menor contraste/opacidad -->
+    <div class="absolute inset-0 z-10 bg-[#840032]/25 backdrop-blur-[1px]"></div>
+    <div class="absolute inset-0 z-10 bg-gradient-to-t from-[#840032]/60 via-[#256EFF]/35 to-transparent"></div>
+  </div>
+
+  <!-- Destellos decorativos de fondo más suaves -->
+  <div class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-[#3DDC97]/15 blur-3xl pointer-events-none z-10"></div>
+  <div class="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-[#FF495C]/15 blur-3xl pointer-events-none z-10"></div>
+
+  <!-- Contenedor Principal Centrado -->
+  <div class="mx-auto flex max-w-4xl flex-col items-center relative z-20">
+    
+    <!-- Título principal -->
+    <h1 class="font-display text-3xl font-extrabold leading-tight text-[#FCFCFC] md:text-5xl lg:text-6xl tracking-tight drop-shadow-md">
+      Todo lo que tu <span class="text-[#3DDC97]">mejor amigo</span> necesita
+    </h1>
+    
+    <!-- Párrafo descriptivo -->
+    <p class="mt-4 max-w-2xl text-base md:text-lg leading-relaxed text-[#FCFCFC]/90 drop-shadow font-medium">
+      Encuentra el mejor alimento premium, accesorios resistentes, juguetes divertidos y servicios de peluquería y salud para consentir a tu mascota en Maracaibo.
+    </p>
+    
+    <!-- Botones de Acción -->
+    <div class="mt-8 flex flex-wrap justify-center gap-4">
+      <a 
+        href="#productos" 
+        class="rounded-tr-2xl bg-[#3DDC97] px-7 py-3.5 font-display font-semibold text-[#22281F] shadow-lg transition-all duration-300 hover:scale-105 hover:bg-[#3DDC97]/90"
+      >
+        Ver Catálogo
+      </a>
+      <a 
+        href="#servicios" 
+        class="rounded-tr-2xl bg-[#840032]/50 backdrop-blur-md border border-[#FCFCFC]/30 px-7 py-3.5 font-display font-semibold text-[#FCFCFC] shadow-lg transition-all duration-300 hover:scale-105 hover:bg-[#FCFCFC] hover:text-[#840032]"
+      >
+        Conoce Servicios
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<!-- Script para rotar las imágenes con efecto Fade -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const slides = document.querySelectorAll('.hero-slide');
+    if (slides.length === 0) return;
+
+    let currentIndex = 0;
+    const intervalTime = 5000;
+
+    setInterval(() => {
+      slides[currentIndex].classList.remove('opacity-100');
+      slides[currentIndex].classList.add('opacity-0');
+
+      currentIndex = (currentIndex + 1) % slides.length;
+
+      slides[currentIndex].classList.remove('opacity-0');
+      slides[currentIndex].classList.add('opacity-100');
+    }, intervalTime);
+  });
+</script>

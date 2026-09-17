@@ -1,0 +1,52 @@
+---
+const servicios = [
+  {
+    titulo: 'Peluquería y baño',
+    descripcion: 'Corte, baño y cepillado con productos hipoalergénicos, adaptado a cada raza.',
+    icono: '🛁',
+  },
+  {
+    titulo: 'Consulta veterinaria',
+    descripcion: 'Chequeos generales, vacunación y orientación nutricional con veterinarios aliados.',
+    icono: '🩺',
+  },
+  {
+    titulo: 'Guardería de día',
+    descripcion: 'Cuidado supervisado por horas mientras trabajas, con espacio para jugar y descansar.',
+    icono: '🏡',
+  },
+  {
+    titulo: 'Entrega a domicilio',
+    descripcion: 'Pedidos de alimento y accesorios entregados el mismo día en Maracaibo.',
+    icono: '🚚',
+  },
+];
+---
+
+<section id="servicios" class="relative bg-gradient-to-br from-[#840032] via-[#5c0023] to-[#256EFF] text-white py-28 overflow-hidden">
+  
+  <!-- Círculos de luz decorativos -->
+  <div class="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-[#3DDC97]/20 blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-[#FF495C]/20 blur-3xl pointer-events-none"></div>
+
+  <div class="max-w-6xl mx-auto px-6 relative z-10">
+    <div class="max-w-2xl mb-16">
+      <span class="inline-block text-xs font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-full bg-[#3DDC97] text-[#22281F] mb-3 shadow-md">Más que una tienda</span>
+      <h2 class="font-display text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+        Servicios para el cuidado diario de tu mascota
+      </h2>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-8">
+      {servicios.map((servicio) => (
+        <div class="group p-8 rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all duration-300 hover:-translate-y-1 shadow-xl">
+          <div class="w-14 h-14 rounded-2xl bg-[#3DDC97] flex items-center justify-center text-3xl shadow-lg mb-6 group-hover:scale-110 transition-transform">
+            {servicio.icono}
+          </div>
+          <h3 class="font-display text-2xl font-bold text-white mb-2">{servicio.titulo}</h3>
+          <p class="text-white/80 leading-relaxed text-sm md:text-base">{servicio.descripcion}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,80 @@
+---
+const productos = [
+  {
+    nombre: 'Alimento premium adulto',
+    categoria: 'Perros',
+    precio: '$24.00',
+    img: 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?q=80&w=600&auto=format&fit=crop',
+    tag: 'Más vendido',
+  },
+  {
+    nombre: 'Arena aglomerante',
+    categoria: 'Gatos',
+    precio: '$11.50',
+    img: 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?q=80&w=600&auto=format&fit=crop',
+    tag: 'Eco Friendly',
+  },
+  {
+    nombre: 'Correa y arnés trekking',
+    categoria: 'Accesorios',
+    precio: '$18.90',
+    img: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=600&auto=format&fit=crop',
+    tag: 'Nuevo',
+  },
+  {
+    nombre: 'Juguete mordedor resistente',
+    categoria: 'Juguetes',
+    precio: '$8.00',
+    img: 'https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?q=80&w=600&auto=format&fit=crop',
+    tag: 'Oferta',
+  },
+];
+---
+
+<section id="productos" class="max-w-6xl mx-auto px-6 py-28">
+  <div class="flex flex-wrap items-end justify-between gap-6 mb-14">
+    <div>
+      <span class="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-[#3DDC97]/20 text-[#2E7D32] mb-3">Catálogo Exclusivo</span>
+      <h2 class="font-display text-4xl font-extrabold text-[#840032]">Artículos destacados</h2>
+    </div>
+    <a href="#" class="inline-flex items-center gap-2 text-[#256EFF] font-semibold hover:text-[#840032] transition-colors group">
+      Ver todo el catálogo <span class="group-hover:translate-x-1 transition-transform">→</span>
+    </a>
+  </div>
+
+  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+    {productos.map((producto, i) => (
+      <article class={`group relative bg-white rounded-3xl border border-[#256EFF]/10 shadow-lg shadow-[#256EFF]/5 overflow-hidden hover:shadow-2xl hover:shadow-[#256EFF]/15 transition-all duration-300 hover:-translate-y-1.5 ${i % 2 === 0 ? 'rounded-tr-[2.5rem]' : 'rounded-bl-[2.5rem]'}`}>
+        
+        <!-- Etiqueta superior -->
+        <span class="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-white/90 backdrop-blur-md text-[11px] font-bold text-[#840032] shadow-md">
+          {producto.tag}
+        </span>
+
+        <div class="aspect-square overflow-hidden bg-gray-100 relative">
+          <img
+            src={producto.img}
+            alt={producto.nombre}
+            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        </div>
+
+        <div class="p-6">
+          <p class="text-xs uppercase tracking-wider text-[#256EFF] font-semibold">{producto.categoria}</p>
+          <h3 class="font-display text-lg font-bold text-[#840032] mt-1 line-clamp-1">{producto.nombre}</h3>
+          
+          <div class="mt-5 flex items-center justify-between">
+            <span class="font-display text-xl font-extrabold text-[#256EFF]">{producto.precio}</span>
+            <button
+              class="px-4 py-2 rounded-xl bg-[#256EFF]/10 text-[#256EFF] font-semibold text-sm hover:bg-[#3DDC97] hover:text-[#22281F] transition-all duration-300 shadow-sm"
+              aria-label={`Agregar ${producto.nombre} al carrito`}
+            >
+              + Agregar
+            </button>
+          </div>
+        </div>
+      </article>
+    ))}
+  </div>
+</section>

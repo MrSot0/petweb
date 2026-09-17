@@ -1,0 +1,78 @@
+---
+---
+
+<section id="contacto" class="max-w-6xl mx-auto px-6 py-28 grid md:grid-cols-2 gap-16 items-center">
+  <div>
+    <span class="inline-block text-xs font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-full bg-[#256EFF]/10 text-[#256EFF] mb-3">Hablemos</span>
+    <h2 class="font-display text-4xl font-extrabold text-[#840032] mb-6">
+      ¿Tienes una pregunta sobre tu mascota?
+    </h2>
+    <p class="text-[#840032]/70 leading-relaxed text-base max-w-md">
+      Escríbenos y te respondemos el mismo día. También puedes visitarnos directamente en nuestra tienda física.
+    </p>
+
+    <ul class="mt-10 space-y-6 text-[#840032]/80 font-medium">
+      <li class="flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#256EFF]/10 shadow-sm">
+        <span class="w-10 h-10 rounded-xl bg-[#256EFF]/10 flex items-center justify-center text-lg">📍</span> 
+        <span>Av. Bella Vista, Maracaibo, Venezuela</span>
+      </li>
+      <li class="flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#256EFF]/10 shadow-sm">
+        <span class="w-10 h-10 rounded-xl bg-[#256EFF]/10 flex items-center justify-center text-lg">📞</span> 
+        <span>+58 412 000 0000</span>
+      </li>
+      <li class="flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#256EFF]/10 shadow-sm">
+        <span class="w-10 h-10 rounded-xl bg-[#256EFF]/10 flex items-center justify-center text-lg">✉️</span> 
+        <span>hola@petweb.com</span>
+      </li>
+      <li class="flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#256EFF]/10 shadow-sm">
+        <span class="w-10 h-10 rounded-xl bg-[#256EFF]/10 flex items-center justify-center text-lg">🕘</span> 
+        <span>Lun a Sáb · 9:00 am – 6:00 pm</span>
+      </li>
+    </ul>
+  </div>
+
+  <form class="bg-white rounded-[2.5rem] border border-[#256EFF]/15 p-8 md:p-10 shadow-2xl shadow-[#256EFF]/10 space-y-6">
+    <div>
+      <label for="nombre" class="block text-sm font-semibold text-[#840032] mb-2">Nombre completo</label>
+      <input
+        id="nombre"
+        name="nombre"
+        type="text"
+        placeholder="Tu nombre"
+        required
+        class="w-full bg-[#FCFCFC] border border-[#840032]/15 rounded-xl px-4 py-3 text-[#840032] focus:outline-none focus:ring-2 focus:ring-[#256EFF] transition-all"
+      />
+    </div>
+
+    <div>
+      <label for="email" class="block text-sm font-semibold text-[#840032] mb-2">Correo electrónico</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        placeholder="tucorreo@email.com"
+        required
+        class="w-full bg-[#FCFCFC] border border-[#840032]/15 rounded-xl px-4 py-3 text-[#840032] focus:outline-none focus:ring-2 focus:ring-[#256EFF] transition-all"
+      />
+    </div>
+
+    <div>
+      <label for="mensaje" class="block text-sm font-semibold text-[#840032] mb-2">Mensaje</label>
+      <textarea
+        id="mensaje"
+        name="mensaje"
+        rows="4"
+        placeholder="¿En qué podemos ayudarte?"
+        required
+        class="w-full bg-[#FCFCFC] border border-[#840032]/15 rounded-xl px-4 py-3 text-[#840032] focus:outline-none focus:ring-2 focus:ring-[#256EFF] transition-all resize-none"
+      ></textarea>
+    </div>
+
+    <button
+      type="submit"
+      class="w-full rounded-xl bg-[#256EFF] text-[#FCFCFC] py-3.5 font-bold shadow-lg shadow-[#256EFF]/25 hover:bg-[#256EFF]/90 hover:scale-[1.02] transition-all duration-300"
+    >
+      Enviar mensaje
+    </button>
+  </form>
+</section>
