@@ -384,7 +384,7 @@ class _MotivoSheetState extends State<_MotivoSheet> {
     super.dispose();
   }
 
-  String get _motivo => [if (_chip != null) _chip!, if (_ctrl.text.trim().isNotEmpty) _ctrl.text.trim()].join('. ');
+  String get _motivo => [?_chip, if (_ctrl.text.trim().isNotEmpty) _ctrl.text.trim()].join('. ');
 
   @override
   Widget build(BuildContext context) {
