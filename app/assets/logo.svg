@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-labelledby="t">
+<title id="t">FAUNAZULIA</title>
+<desc>Icono adaptativo Android v3. Capa background: color solido a sangre (#1660C4). Capa foreground: pata-corazon plana (#FAF3E6), un solo path, dentro del circulo seguro de 66dp. Sin contorno ni sombra.</desc>
+<rect id="background" width="108" height="108" fill="#1660C4"/>
+<g id="foreground"><path transform="translate(54 54) scale(0.6615) translate(-50.00 -47.61)" fill="#FAF3E6" fill-rule="nonzero" d="M24.39 53.39C24.39 45.10 31.10 38.39 39.39 38.39C43.53 38.39 47.28 40.07 50.0 42.78C52.71 40.07 56.46 38.39 60.60 38.39C68.89 38.39 75.60 45.10 75.60 53.39C75.60 57.55 73.91 61.32 71.17 64.04L54.66 80.54Q52.33 83.22 50.0 83.22Q47.66 83.22 45.33 80.54L28.82 64.04C26.08 61.32 24.39 57.55 24.39 53.39ZM75.0 35.0C75.0 28.92 79.92 24.0 86.0 24.0C92.07 24.0 97.0 28.92 97.0 35.0C97.0 41.07 92.07 46.0 86.0 46.0C79.92 46.0 75.0 41.07 75.0 35.0ZM3.0 35.0C3.0 28.92 7.92 24.0 14.0 24.0C20.07 24.0 25.0 28.92 25.0 35.0C25.0 41.07 20.07 46.0 14.0 46.0C7.92 46.0 3.0 41.07 3.0 35.0ZM39.0 23.0C39.0 16.92 43.92 12.0 50.0 12.0C56.07 12.0 61.0 16.92 61.0 23.0C61.0 29.07 56.07 34.0 50.0 34.0C43.92 34.0 39.0 29.07 39.0 23.0Z"/></g>
+</svg>

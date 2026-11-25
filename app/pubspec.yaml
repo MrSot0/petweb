@@ -1,0 +1,32 @@
+name: faunazulia
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  crypto: ^3.0.8
+  flutter:
+    sdk: flutter
+  flutter_image_compress: ^2.5.1
+  flutter_localizations:
+    sdk: flutter
+  flutter_svg: ^2.5.0
+  google_fonts: ^9.0.0
+  image_picker: ^1.2.4
+  intl: ^0.20.3
+  path: ^1.9.1
+  supabase_flutter: ^2.18.3
+  url_launcher: ^6.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.svg
