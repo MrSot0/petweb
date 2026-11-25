@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Text(
               _registro
                   ? 'Con tu cuenta inscribes a tus mascotas y sigues tus pagos.'
-                  : 'Jornadas de esterilización a bajo costo en Maracaibo y San Francisco.',
+                  : 'Esterilización de perros y gatos a precios accesibles en Maracaibo y San Francisco.',
               style: t.bodyLarge?.copyWith(color: Fz.variante),
             ),
             const SizedBox(height: 20),
