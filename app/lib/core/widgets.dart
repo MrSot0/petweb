@@ -276,3 +276,127 @@ class SectionTitle extends StatelessWidget {
         ]),
       );
 }
+
+// ======================= v0.2: dinamismo visual =======================
+
+/// Aparición suave (sube y se desvanece) con retraso escalonado por índice.
+/// Respeta "reducir animaciones" del sistema.
+class FadeSlideIn extends StatelessWidget {
+  const FadeSlideIn({super.key, required this.child, this.index = 0, this.dy = 18});
+  final Widget child;
+  final int index;
+  final double dy;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return child;
+    final delay = (index.clamp(0, 10)) * 55;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 380 + delay),
+      curve: Interval(delay / (380 + delay), 1, curve: Curves.easeOutCubic),
+      builder: (_, v, c) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, (1 - v) * dy), child: c)),
+      child: child,
+    );
+  }
+}
+
+/// Patrón decorativo de huellas (círculos) en tonos del azul principal.
+class PawPatternPainter extends CustomPainter {
+  PawPatternPainter({this.color = const Color(0x22FBFDFF)});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = color;
+    const step = 64.0;
+    var row = 0;
+    for (var y = 12.0; y < size.height + step; y += step, row++) {
+      for (var x = (row.isEven ? 10.0 : 42.0); x < size.width + step; x += step) {
+        final c = Offset(x, y);
+        canvas.drawOval(Rect.fromCenter(center: c + const Offset(0, 7), width: 16, height: 13), p);
+        for (final d in const [Offset(-9, -4), Offset(-3, -10), Offset(4, -10), Offset(10, -4)]) {
+          canvas.drawCircle(c + d, 3.6, p);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant PawPatternPainter old) => old.color != color;
+}
+
+/// Cabecera azul con patrón de huellas, título centrado y contenido opcional.
+/// Úsala como primer elemento de listas para dar ritmo y evitar pantallas planas.
+class FzHero extends StatelessWidget {
+  const FzHero({super.key, required this.title, this.subtitle, this.leading, this.child, this.color = Fz.azul});
+  final String title;
+  final String? subtitle;
+  final Widget? leading;
+  final Widget? child;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(Fz.radioTarjeta + 4),
+        border: Border.all(color: Fz.tinta, width: Fz.borde),
+        boxShadow: const [BoxShadow(color: Fz.tinta, offset: Fz.sombra)],
+      ),
+      child: CustomPaint(
+        painter: PawPatternPainter(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (leading != null) ...[leading!, const SizedBox(height: 10)],
+            Text(title, textAlign: TextAlign.center, style: t.headlineMedium?.copyWith(color: Fz.tarjeta)),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(subtitle!, textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: Fz.azul50)),
+            ],
+            if (child != null) ...[const SizedBox(height: 14), child!],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Avatar circular con foto (URL pública) o iniciales/icono como respaldo.
+class FzAvatar extends StatelessWidget {
+  const FzAvatar({super.key, this.url, this.text, this.icon = Icons.person_rounded, this.size = 48, this.color = Fz.azul100});
+  final String? url;
+  final String? text;
+  final IconData icon;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Center(
+      child: text != null && text!.isNotEmpty
+          ? Text(text!, style: Fz.display(size * .38, color: Fz.tinta))
+          : Icon(icon, size: size * .5, color: Fz.tinta),
+    );
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Fz.tinta, width: Fz.borde)),
+      child: url == null
+          ? fallback
+          : Image.network(url!, fit: BoxFit.cover, errorBuilder: (_, _, _) => fallback),
+    );
+  }
+}
+
+/// Iniciales a partir de un nombre ("Jesús Soto" -> "JS").
+String iniciales(String? nombre) {
+  final p = (nombre ?? '').trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+  if (p.isEmpty) return '';
+  return (p.first[0] + (p.length > 1 ? p.last[0] : '')).toUpperCase();
+}

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
+import 'webp.dart';
+import 'package:image_picker/image_picker.dart';
 
 SupabaseClient get sb => Supabase.instance.client;
 
@@ -33,6 +35,7 @@ class Pet {
   bool get braqui => m['braquiocefalico'] == true;
   bool get esterilizada => m['esterilizada'] == true;
   bool get esPerro => especie == 'perro';
+  String? get fotoUrl => Data.fotoUrl(m['foto_path'] as String?);
   String get descripcion =>
       '${esPerro ? (sexo == 'macho' ? 'Perro' : 'Perra') : (sexo == 'macho' ? 'Gato' : 'Gata')}'
       '${pesoKg != null ? ' · ${pesoKg!.toStringAsFixed(pesoKg! % 1 == 0 ? 0 : 1)} kg' : ''}';
@@ -54,6 +57,12 @@ class Jornada {
   int get cuposTotal => m['cupos_total'] as int;
   bool get limpiezaDental => m['incluye_limpieza_dental'] == true;
   String get estado => m['estado'] as String;
+  String? get mapsUrl => m['maps_url'] as String?;
+  String? get imagenUrl => Data.fotoUrl(m['imagen_path'] as String?);
+
+  /// Enlace para abrir la ubicación: el de Google Maps cargado por el admin, o las coordenadas.
+  String? get enlaceMapa => mapsUrl ??
+      (lat != null && lng != null ? 'https://www.google.com/maps/search/?api=1&query=$lat,$lng' : null);
 }
 
 /// Precio calculado en el cliente solo para mostrar; el servidor recalcula al inscribir.
@@ -124,7 +133,7 @@ class Data {
   // ---------- Jornadas ----------
   static Future<List<Jornada>> jornadas({bool todas = false}) async {
     var q = sb.from('jornadas').select(
-        'id,titulo,descripcion,fecha_inicio,sede_nombre,direccion,ciudad,lat,lng,cupos_total,incluye_limpieza_dental,estado');
+        'id,titulo,descripcion,fecha_inicio,sede_nombre,direccion,ciudad,lat,lng,maps_url,imagen_path,cupos_total,incluye_limpieza_dental,estado');
     if (!todas) {
       q = q.eq('estado', 'publicada').gte('fecha_inicio', DateTime.now().subtract(const Duration(days: 1)).toIso8601String());
     }
@@ -268,6 +277,94 @@ class Data {
           .eq('jornada_id', jornadaId)
           .neq('estado', 'cancelada')
           .order('created_at'));
+
+
+  // ======================= v0.2 =======================
+
+  /// URL pública de una foto del bucket 'fotos' (perfil, mascota, portada de jornada).
+  static String? fotoUrl(String? path) => path == null ? null : sb.storage.from('fotos').getPublicUrl(path);
+
+  /// Convierte a WebP y sube a 'fotos/{carpeta}/{uid}/{timestamp}.webp' (carpeta: avatares | mascotas)
+  /// o a 'fotos/jornadas/{timestamp}.webp' (solo admin). Devuelve la ruta.
+  static Future<String> subirFoto(XFile file, {required String carpeta}) async {
+    final portada = carpeta == 'jornadas';
+    final r = await WebpPipeline.convertirFoto(file,
+        lado: portada ? 1600 : 1024, maxBytes: portada ? 300 * 1024 : 150 * 1024);
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = portada ? 'jornadas/$ts.webp' : '$carpeta/${sb.auth.currentUser!.id}/$ts.webp';
+    await sb.storage.from('fotos').uploadBinary(path, r.bytes,
+        fileOptions: const FileOptions(contentType: 'image/webp', upsert: false));
+    return path;
+  }
+
+  /// Foto de la cirugía (bucket privado 'cirugias').
+  static Future<String> subirFotoCirugia(XFile file, String inscripcionId) async {
+    final r = await WebpPipeline.convertirFoto(file, lado: 1280, maxBytes: 250 * 1024);
+    final path = '$inscripcionId/${DateTime.now().millisecondsSinceEpoch}.webp';
+    await sb.storage.from('cirugias').uploadBinary(path, r.bytes,
+        fileOptions: const FileOptions(contentType: 'image/webp', upsert: false));
+    return path;
+  }
+
+  static Future<String?> urlFotoCirugia(String? path) async =>
+      path == null ? null : sb.storage.from('cirugias').createSignedUrl(path, 300);
+
+  /// Rol de equipo del usuario actual: admin | contador | cirujano | null.
+  static Future<String?> miRolEquipo() async => await sb.rpc('mi_rol_equipo') as String?;
+
+  /// Un solo rol de equipo por usuario: propietario (ninguno) | cirujano | contador | admin.
+  static Future<void> setRol(String userId, String rol) =>
+      sb.rpc('rpc_set_rol', params: {'p_user': userId, 'p_rol': rol});
+
+  /// Retira una mascota de la jornada (admin o contador), con motivo.
+  static Future<void> retirarInscripcion(String id, String motivo) =>
+      sb.rpc('rpc_retirar_inscripcion', params: {'p_id': id, 'p_motivo': motivo});
+
+  /// Busca por código de QR (FZ-AAMM-NNNN). Devuelve la ficha: pet, propietario, pago, jornada, cirugía.
+  static Future<Map<String, dynamic>> buscarCodigo(String codigo) async =>
+      Map<String, dynamic>.from(await sb.rpc('rpc_buscar_codigo', params: {'p_codigo': codigo}) as Map);
+
+  /// Participantes de una jornada con datos del propietario y del pago (ficha por inscripción).
+  static Future<List<Map<String, dynamic>>> participantes(String jornadaId) async =>
+      List<Map<String, dynamic>>.from(
+          (await sb.rpc('rpc_participantes_jornada', params: {'p_jornada': jornadaId}) as List)
+              .map((e) => Map<String, dynamic>.from(e as Map)));
+
+  static Future<void> marcarPresente(String inscripcionId) =>
+      sb.rpc('rpc_marcar_presente', params: {'p_id': inscripcionId});
+
+  static Future<Map<String, dynamic>> registrarCirugia({
+    required String inscripcionId,
+    required String especie,
+    required String sexo,
+    required String fotoPath,
+    bool patologia = false,
+    bool prolapso = false,
+    String? observaciones,
+  }) async =>
+      Map<String, dynamic>.from(await sb.rpc('rpc_registrar_cirugia', params: {
+        'p_inscripcion': inscripcionId,
+        'p_especie': especie,
+        'p_sexo': sexo,
+        'p_foto': fotoPath,
+        'p_patologia': patologia,
+        'p_prolapso': prolapso,
+        'p_obs': observaciones,
+      }) as Map);
+
+  /// Estadísticas de una jornada (o globales si jornadaId es null). 'ingresos' solo llega a admin/contador.
+  static Future<Map<String, dynamic>> estadisticas([String? jornadaId]) async =>
+      Map<String, dynamic>.from(await sb.rpc('rpc_estadisticas', params: {'p_jornada': jornadaId}) as Map);
+
+  /// Convierte un enlace de Google Maps (incluso maps.app.goo.gl) en {url, lat, lng}.
+  static Future<Map<String, dynamic>> resolverMapa(String url) async {
+    final r = await sb.functions.invoke('resolver-mapa', body: {'url': url});
+    final d = Map<String, dynamic>.from(r.data as Map);
+    if (d['error'] != null) throw Exception(d['error']);
+    return d;
+  }
+
+  static Future<void> actualizarFotoPerfil(String path) => actualizarPerfil({'avatar_path': path});
 
   static String _d(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

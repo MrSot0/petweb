@@ -1,23 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Identidad v3 de FAUNAZULIA (ver design/brand.md).
-/// Azul médico + tinta + rosa y azul pastel sobre crema. Sin naranja, sin blanco puro.
+/// Identidad v0.2 de FAUNAZULIA: UN SOLO color principal (azul médico) y sus variaciones.
+/// Fondo azul muy claro (no blanco puro). El frambuesa queda solo para errores.
 class Fz {
-  static const azul = Color(0xFF1660C4); // Azul Lago: primario
-  static const tinta = Color(0xFF0E1C3A); // Texto, contornos, sombras duras
-  static const rosa = Color(0xFFF6B8CB); // Acento pastel
-  static const azulPastel = Color(0xFFC7DBF5); // Contenedores, chips
-  static const crema = Color(0xFFFAF3E6); // Fondo
-  static const cremaClaro = Color(0xFFFFFAF2); // Tarjetas
-  static const rosaSuave = Color(0xFFFBD9E3); // Contenedor secundario
-  static const frambuesa = Color(0xFFB01E45); // Error / peligro
-  static const frambuesaSuave = Color(0xFFFAD4DC);
-  static const variante = Color(0xFF3A4766); // Texto secundario (AA sobre crema)
+  // --- Escala del azul principal ---
+  static const azul900 = Color(0xFF0B2A5B);
+  static const azul700 = Color(0xFF124E9F);
+  static const azul = Color(0xFF1660C4); // principal
+  static const azul400 = Color(0xFF4A86D6);
+  static const azul200 = Color(0xFFA9C8F2);
+  static const azul100 = Color(0xFFD6E5F8);
+  static const azul50 = Color(0xFFEAF2FC);
 
-  static const borde = 2.5;
-  static const sombra = Offset(4, 4);
-  static const radioTarjeta = 24.0;
+  static const tinta = Color(0xFF0E1C3A); // texto, contornos y sombras (azul noche)
+  static const fondo = Color(0xFFEEF3FA); // fondo de pantallas
+  static const tarjeta = Color(0xFFFBFDFF); // tarjetas (casi blanco azulado, no puro)
+  static const variante = Color(0xFF3A4766); // texto secundario (AA sobre fondo)
+  static const frambuesa = Color(0xFFB01E45); // error / peligro
+  static const frambuesaSuave = Color(0xFFFAD4DC);
+
+  // Nombres heredados (v0.1) remapeados a la escala azul para no romper pantallas.
+  static const crema = fondo;
+  static const cremaClaro = tarjeta;
+  static const azulPastel = azul100;
+  static const rosa = azul200;
+  static const rosaSuave = azul50;
+
+  static const borde = 2.0;
+  static const sombra = Offset(3, 3);
+  static const radioTarjeta = 22.0;
 
   static TextStyle display(double size, {FontWeight w = FontWeight.w800, Color color = tinta}) =>
       GoogleFonts.baloo2(fontSize: size, fontWeight: w, color: color, height: 1.15);
@@ -26,51 +38,52 @@ class Fz {
   static TextStyle body(double size, {FontWeight w = FontWeight.w400, Color color = tinta, double height = 1.4}) =>
       GoogleFonts.getFont('Atkinson Hyperlegible Next', fontSize: size, fontWeight: w, color: color, height: height);
 
+  // Escala reducida (v0.2): títulos más contenidos, texto 15/14/12.
   static TextTheme _text() => TextTheme(
-        displayLarge: display(48),
-        displayMedium: display(40),
-        displaySmall: display(32),
-        headlineLarge: display(28),
-        headlineMedium: display(24),
-        headlineSmall: display(22, w: FontWeight.w700),
-        titleLarge: display(20, w: FontWeight.w700),
-        titleMedium: body(16, w: FontWeight.w700),
-        titleSmall: body(14, w: FontWeight.w700),
-        bodyLarge: body(16, height: 1.45),
+        displayLarge: display(36),
+        displayMedium: display(30),
+        displaySmall: display(26),
+        headlineLarge: display(24),
+        headlineMedium: display(21),
+        headlineSmall: display(18.5, w: FontWeight.w700),
+        titleLarge: display(17, w: FontWeight.w700),
+        titleMedium: body(15, w: FontWeight.w700),
+        titleSmall: body(13.5, w: FontWeight.w700),
+        bodyLarge: body(15, height: 1.45),
         bodyMedium: body(14),
-        bodySmall: body(12.5, color: variante, height: 1.35),
-        labelLarge: display(16, w: FontWeight.w700),
-        labelMedium: body(13, w: FontWeight.w700),
-        labelSmall: body(12, w: FontWeight.w700),
+        bodySmall: body(12, color: variante, height: 1.35),
+        labelLarge: display(15, w: FontWeight.w700),
+        labelMedium: body(12.5, w: FontWeight.w700),
+        labelSmall: body(11.5, w: FontWeight.w700),
       );
 
   static ThemeData theme() {
     const scheme = ColorScheme(
       brightness: Brightness.light,
       primary: azul,
-      onPrimary: cremaClaro,
-      primaryContainer: azulPastel,
+      onPrimary: tarjeta,
+      primaryContainer: azul100,
       onPrimaryContainer: tinta,
-      secondary: Color(0xFF9C2F5C),
-      onSecondary: cremaClaro,
-      secondaryContainer: rosa,
+      secondary: azul700,
+      onSecondary: tarjeta,
+      secondaryContainer: azul200,
       onSecondaryContainer: tinta,
-      tertiary: tinta,
-      onTertiary: cremaClaro,
+      tertiary: azul900,
+      onTertiary: tarjeta,
       error: frambuesa,
-      onError: cremaClaro,
+      onError: tarjeta,
       errorContainer: frambuesaSuave,
       onErrorContainer: tinta,
-      surface: cremaClaro,
+      surface: tarjeta,
       onSurface: tinta,
       onSurfaceVariant: variante,
-      surfaceContainerLowest: cremaClaro,
-      surfaceContainerLow: Color(0xFFF7EEDD),
-      surfaceContainer: Color(0xFFF4EBDB),
-      surfaceContainerHigh: Color(0xFFEDE2CF),
-      surfaceContainerHighest: Color(0xFFE6D9C2),
+      surfaceContainerLowest: tarjeta,
+      surfaceContainerLow: azul50,
+      surfaceContainer: Color(0xFFE3ECF8),
+      surfaceContainerHigh: azul100,
+      surfaceContainerHighest: Color(0xFFC9DBF3),
       outline: tinta,
-      outlineVariant: Color(0xFFCFC3AE),
+      outlineVariant: azul200,
     );
     final text = _text();
     final pill = RoundedRectangleBorder(
@@ -81,97 +94,144 @@ class Fz {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: c, width: w),
         );
+    // Opciones seleccionadas: azul sólido con texto claro (acento fuerte).
+    Color sel(Set<WidgetState> s, Color on, Color off) => s.contains(WidgetState.selected) ? on : off;
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: crema,
+      scaffoldBackgroundColor: fondo,
       textTheme: text,
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+      }),
       appBarTheme: AppBarTheme(
-        backgroundColor: crema,
+        backgroundColor: fondo,
         foregroundColor: tinta,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: false,
-        titleTextStyle: display(22),
+        centerTitle: true,
+        titleTextStyle: display(19),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: azul,
-          foregroundColor: cremaClaro,
-          minimumSize: const Size(64, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          foregroundColor: tarjeta,
+          minimumSize: const Size(64, 50),
+          padding: const EdgeInsets.symmetric(horizontal: 22),
           shape: pill,
-          textStyle: display(17, w: FontWeight.w700),
+          textStyle: display(15.5, w: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          backgroundColor: azulPastel,
+          backgroundColor: azul50,
           foregroundColor: tinta,
-          minimumSize: const Size(64, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          minimumSize: const Size(64, 50),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           shape: pill,
           side: const BorderSide(color: tinta, width: borde),
-          textStyle: display(16, w: FontWeight.w700),
+          textStyle: display(15, w: FontWeight.w700),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: azul,
           minimumSize: const Size(48, 48),
-          textStyle: display(15, w: FontWeight.w700),
+          textStyle: display(14.5, w: FontWeight.w700),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((s) => sel(s, azul, tarjeta)),
+          foregroundColor: WidgetStateProperty.resolveWith((s) => sel(s, tarjeta, tinta)),
+          iconColor: WidgetStateProperty.resolveWith((s) => sel(s, tarjeta, tinta)),
+          side: const WidgetStatePropertyAll(BorderSide(color: tinta, width: borde)),
+          textStyle: WidgetStatePropertyAll(body(13.5, w: FontWeight.w700)),
+          minimumSize: const WidgetStatePropertyAll(Size(48, 46)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: cremaClaro,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        fillColor: tarjeta,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: field(tinta),
-        enabledBorder: field(tinta),
-        focusedBorder: field(azul, 3),
+        enabledBorder: field(azul200),
+        focusedBorder: field(azul, 2.5),
         errorBorder: field(frambuesa),
-        focusedErrorBorder: field(frambuesa, 3),
-        labelStyle: text.bodyMedium,
+        focusedErrorBorder: field(frambuesa, 2.5),
+        labelStyle: text.bodyMedium?.copyWith(color: variante),
         floatingLabelStyle: text.titleSmall?.copyWith(color: azul),
         helperStyle: text.bodySmall,
+        prefixIconColor: azul,
+        suffixIconColor: azul,
         errorStyle: text.bodySmall?.copyWith(color: frambuesa, fontWeight: FontWeight.w700),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: cremaClaro,
-        selectedColor: rosa,
-        side: const BorderSide(color: tinta, width: 2),
+        backgroundColor: tarjeta,
+        selectedColor: azul,
+        secondarySelectedColor: azul,
+        side: const BorderSide(color: tinta, width: 1.6),
         shape: const StadiumBorder(),
-        labelStyle: text.titleSmall,
+        labelStyle: text.titleSmall?.copyWith(fontSize: 13),
+        secondaryLabelStyle: text.titleSmall?.copyWith(fontSize: 13, color: tarjeta),
         showCheckmark: true,
-        checkmarkColor: tinta,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        checkmarkColor: tarjeta,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: cremaClaro,
-        indicatorColor: rosa,
-        height: 72,
-        labelTextStyle: WidgetStatePropertyAll(text.titleSmall?.copyWith(fontSize: 12)),
-        iconTheme: const WidgetStatePropertyAll(IconThemeData(color: tinta)),
+        backgroundColor: tarjeta,
+        indicatorColor: azul,
+        height: 68,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+            (s) => text.titleSmall?.copyWith(fontSize: 11.5, color: s.contains(WidgetState.selected) ? azul : variante)),
+        iconTheme: WidgetStateProperty.resolveWith(
+            (s) => IconThemeData(color: s.contains(WidgetState.selected) ? tarjeta : variante, size: 24)),
       ),
       checkboxTheme: CheckboxThemeData(
         side: const BorderSide(color: tinta, width: 2),
-        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? azul : cremaClaro),
-        checkColor: const WidgetStatePropertyAll(cremaClaro),
+        fillColor: WidgetStateProperty.resolveWith((s) => sel(s, azul, tarjeta)),
+        checkColor: const WidgetStatePropertyAll(tarjeta),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
+      radioTheme: RadioThemeData(fillColor: WidgetStateProperty.resolveWith((s) => sel(s, azul, variante))),
       switchTheme: SwitchThemeData(
         trackOutlineColor: const WidgetStatePropertyAll(tinta),
-        thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? cremaClaro : tinta),
-        trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? azul : cremaClaro),
+        thumbColor: WidgetStateProperty.resolveWith((s) => sel(s, tarjeta, tinta)),
+        trackColor: WidgetStateProperty.resolveWith((s) => sel(s, azul, tarjeta)),
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: tarjeta,
+        unselectedLabelColor: tinta,
+        labelStyle: text.titleSmall,
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(color: azul, borderRadius: BorderRadius.circular(999)),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: azul,
+        titleTextStyle: text.titleMedium,
+        subtitleTextStyle: text.bodySmall,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: azul,
+        foregroundColor: tarjeta,
+        shape: pill,
+        extendedTextStyle: display(15, w: FontWeight.w700),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: tinta,
-        contentTextStyle: text.bodyMedium?.copyWith(color: cremaClaro),
+        contentTextStyle: text.bodyMedium?.copyWith(color: tarjeta),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      dividerTheme: const DividerThemeData(color: Color(0xFFCFC3AE), thickness: 1.5),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(color: azul, linearTrackColor: azulPastel),
+      dialogTheme: DialogThemeData(
+        backgroundColor: tarjeta,
+        titleTextStyle: display(19),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: tinta, width: borde)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(backgroundColor: tarjeta, showDragHandle: true),
+      dividerTheme: const DividerThemeData(color: azul100, thickness: 1.5),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: azul, linearTrackColor: azul100),
     );
   }
 }

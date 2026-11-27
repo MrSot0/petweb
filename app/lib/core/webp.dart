@@ -26,12 +26,17 @@ class WebpPipeline {
         requestFullMetadata: false,
       );
 
-  static Future<WebpResult> convertir(XFile file) async {
+  /// Comprobante de pago: 1600 px, ≤ 300 KB.
+  static Future<WebpResult> convertir(XFile file) =>
+      convertirFoto(file, lado: AppConfig.maxComprobanteLado, maxBytes: AppConfig.maxComprobanteBytes);
+
+  /// Foto general: perfil/mascota (1024 px, ≤ 150 KB), portada de jornada (1600 px, ≤ 300 KB),
+  /// cirugía (1280 px, ≤ 250 KB).
+  static Future<WebpResult> convertirFoto(XFile file, {int lado = 1024, int maxBytes = 150 * 1024}) async {
     final original = await file.length();
     if (original > 15 * 1024 * 1024) {
       throw Exception('La foto es muy pesada (más de 15 MB). Prueba con otra.');
     }
-    var lado = AppConfig.maxComprobanteLado;
     for (var intento = 0; intento < 6; intento++) {
       for (final q in const [80, 70, 60, 50]) {
         final out = await FlutterImageCompress.compressWithFile(
@@ -46,7 +51,7 @@ class WebpPipeline {
         if (out == null) {
           throw Exception('No pudimos preparar la foto. Prueba con otra.');
         }
-        if (out.lengthInBytes <= AppConfig.maxComprobanteBytes) {
+        if (out.lengthInBytes <= maxBytes) {
           return WebpResult(out, original, q);
         }
       }
