@@ -28,7 +28,7 @@ class _JornadasScreenState extends State<JornadasScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Jornadas próximas')),
+      appBar: AppBar(title: const Text('Jornadas')),
       body: FutureBuilder<List<Jornada>>(
         future: _f,
         builder: (context, snap) {
@@ -44,41 +44,49 @@ class _JornadasScreenState extends State<JornadasScreen> {
             );
           }
           final list = snap.data!;
+          final hero = FzHero(
+            title: 'Jornadas próximas',
+            subtitle: list.isEmpty
+                ? 'Estamos preparando las próximas fechas'
+                : '${list.length} ${list.length == 1 ? 'fecha disponible' : 'fechas disponibles'} · perros y gatos',
+            leading: const Icon(Icons.event_available_rounded, size: 34, color: Fz.tarjeta),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Fz.azul700,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Fz.tarjeta, width: 1.5),
+              ),
+              child: Text(
+                'Kit post-operatorio recomendado: +\$5 gato / +\$7 perro',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Fz.tarjeta),
+              ),
+            ),
+          );
           return RefreshIndicator(
             onRefresh: _refresh,
-            child: list.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 60),
-                      EmptyState(
-                        icon: Icons.event_busy_rounded,
-                        title: 'No hay jornadas por ahora',
-                        message: 'Estamos preparando las próximas fechas. Desliza hacia abajo para actualizar.',
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    itemCount: list.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, i) {
-                      if (i == 0) {
-                        return const PopCard(
-                          shadow: false,
-                          color: Fz.azulPastel,
-                          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          child: Row(children: [
-                            Icon(Icons.medical_services_rounded, size: 20),
-                            SizedBox(width: 8),
-                            Expanded(child: Text('Kit post-operatorio recomendado: +\$5 gato / +\$7 perro')),
-                          ]),
-                        );
-                      }
-                      return JornadaCard(jornada: list[i - 1]);
-                    },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                FadeSlideIn(child: hero),
+                const SizedBox(height: 16),
+                if (list.isEmpty)
+                  const EmptyState(
+                    icon: Icons.event_busy_rounded,
+                    title: 'No hay jornadas por ahora',
+                    message: 'Desliza hacia abajo para actualizar.',
                   ),
+                for (var i = 0; i < list.length; i++) ...[
+                  FadeSlideIn(
+                    index: i + 1,
+                    child: JornadaCard(jornada: list[i], alterna: i.isOdd),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ],
+            ),
           );
         },
       ),
@@ -86,9 +94,92 @@ class _JornadasScreenState extends State<JornadasScreen> {
   }
 }
 
-class JornadaCard extends StatelessWidget {
-  const JornadaCard({super.key, required this.jornada});
+/// Portada de una jornada: la imagen cargada por el admin o, si no hay, una cabecera azul
+/// con patrón de huellas y la fecha grande.
+class JornadaPortada extends StatelessWidget {
+  const JornadaPortada({super.key, required this.jornada, this.height = 140, this.radius = 18});
   final Jornada jornada;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = jornada.imagenUrl;
+    final fallback = _FechaPortada(jornada: jornada, height: height);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: url == null
+            ? fallback
+            : Stack(fit: StackFit.expand, children: [
+                Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => fallback,
+                  loadingBuilder: (c, child, p) => p == null ? child : Container(color: Fz.azul100),
+                ),
+                Positioned(left: 10, top: 10, child: _FechaChip(fecha: jornada.fecha)),
+              ]),
+      ),
+    );
+  }
+}
+
+class _FechaChip extends StatelessWidget {
+  const _FechaChip({required this.fecha});
+  final DateTime fecha;
+
+  @override
+  Widget build(BuildContext context) {
+    final mes = DateFormat('MMM', 'es').format(fecha).replaceAll('.', '').toUpperCase();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Fz.tarjeta,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Fz.tinta, width: Fz.borde),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('${fecha.day}', style: Fz.display(22)),
+        Text(mes, style: Theme.of(context).textTheme.labelSmall),
+      ]),
+    );
+  }
+}
+
+class _FechaPortada extends StatelessWidget {
+  const _FechaPortada({required this.jornada, required this.height});
+  final Jornada jornada;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = jornada.fecha;
+    final dia = DateFormat('EEEE', 'es').format(f);
+    final mes = DateFormat('MMMM yyyy', 'es').format(f);
+    final t = Theme.of(context).textTheme;
+    return Container(
+      color: Fz.azul,
+      child: CustomPaint(
+        painter: PawPatternPainter(),
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(dia[0].toUpperCase() + dia.substring(1), style: t.labelLarge?.copyWith(color: Fz.azul50)),
+            Text('${f.day}', style: Fz.display(height * .36, color: Fz.tarjeta)),
+            Text(mes, style: t.labelLarge?.copyWith(color: Fz.azul50)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class JornadaCard extends StatelessWidget {
+  const JornadaCard({super.key, required this.jornada, this.alterna = false});
+  final Jornada jornada;
+  final bool alterna;
 
   @override
   Widget build(BuildContext context) {
@@ -97,84 +188,62 @@ class JornadaCard extends StatelessWidget {
     final libres = j.cuposLibres ?? j.cuposTotal;
     final agotada = libres <= 0;
     final frac = j.cuposTotal == 0 ? 0.0 : (libres / j.cuposTotal).clamp(0.0, 1.0);
-    final dia = DateFormat('EEE', 'es').format(j.fecha).replaceAll('.', '');
-    final mes = DateFormat('MMM', 'es').format(j.fecha).replaceAll('.', '');
+    final fecha = DateFormat("EEE d 'de' MMM · h:mm a", 'es').format(j.fecha);
     return PopCard(
+      color: alterna ? Fz.azul50 : Fz.tarjeta,
+      padding: const EdgeInsets.all(10),
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => JornadaDetailScreen(jornada: j))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 72,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: agotada ? Fz.cremaClaro : Fz.rosa,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Fz.tinta, width: 2),
-            ),
-            child: Column(children: [
-              Text(dia, style: t.titleSmall),
-              Text('${j.fecha.day}', style: Fz.display(32)),
-              Text(mes, style: t.titleSmall),
+      child: Column(children: [
+        JornadaPortada(jornada: j),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
+          child: Column(children: [
+            Text(j.titulo, textAlign: TextAlign.center, style: t.titleLarge),
+            const SizedBox(height: 4),
+            Text(fecha[0].toUpperCase() + fecha.substring(1), textAlign: TextAlign.center, style: t.bodyMedium),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.location_on_rounded, size: 16, color: Fz.azul),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text('${j.sede} · ${j.ciudad}',
+                    textAlign: TextAlign.center, style: t.bodySmall, overflow: TextOverflow.ellipsis),
+              ),
             ]),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(j.titulo, style: t.titleLarge),
-              const SizedBox(height: 4),
-              Row(children: [
-                const Icon(Icons.location_on_rounded, size: 18, color: Fz.variante),
-                const SizedBox(width: 4),
-                Expanded(child: Text('${j.sede} · ${j.ciudad}', style: t.bodyMedium)),
-              ]),
-              Row(children: [
-                const Icon(Icons.schedule_rounded, size: 18, color: Fz.variante),
-                const SizedBox(width: 4),
-                Text(DateFormat('h:mm a', 'es').format(j.fecha), style: t.bodyMedium),
-              ]),
-            ]),
-          ),
-        ]),
-        const SizedBox(height: 14),
-        if (agotada)
-          const StatusPill('Agotada · sin cupos', icon: Icons.block_rounded, color: Fz.frambuesaSuave)
-        else ...[
-          Row(children: [
-            const Icon(Icons.check_circle_rounded, size: 18),
-            const SizedBox(width: 6),
-            Text('Quedan $libres de ${j.cuposTotal} cupos', style: t.titleSmall),
-          ]),
-          const SizedBox(height: 6),
-          Container(
-            height: 14,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Fz.tinta, width: 2),
-              color: Fz.cremaClaro,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: frac,
-                  child: Container(color: frac < .2 ? Fz.frambuesa : Fz.azul),
+            const SizedBox(height: 12),
+            if (agotada)
+              const StatusPill('Agotada · sin cupos', icon: Icons.block_rounded, color: Fz.frambuesaSuave)
+            else ...[
+              Text('Quedan $libres de ${j.cuposTotal} cupos', style: t.titleSmall),
+              const SizedBox(height: 6),
+              Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Fz.tinta, width: 2),
+                  color: Fz.tarjeta,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: frac,
+                      child: Container(color: frac < .2 ? Fz.frambuesa : Fz.azul),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: Text('desde \$10 gatos · desde \$25 perros', style: t.titleSmall)),
-          if (j.limpiezaDental) const StatusPill('Limpieza dental', icon: Icons.add_circle_rounded),
-        ]),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text('Ver jornada', style: Fz.display(16, w: FontWeight.w700, color: Fz.azul)),
-            const Icon(Icons.chevron_right_rounded, color: Fz.azul),
+            ],
+            const SizedBox(height: 10),
+            Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
+              const StatusPill('Gatos desde \$10 · perros desde \$25', icon: Icons.sell_rounded, color: Fz.azul100),
+              if (j.limpiezaDental) const StatusPill('Limpieza dental', icon: Icons.add_circle_rounded, color: Fz.tarjeta),
+            ]),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('Ver jornada', style: t.labelLarge?.copyWith(color: Fz.azul)),
+              const Icon(Icons.chevron_right_rounded, color: Fz.azul),
+            ]),
           ]),
         ),
       ]),
