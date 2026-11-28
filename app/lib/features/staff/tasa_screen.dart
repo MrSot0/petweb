@@ -156,9 +156,12 @@ class _TasaScreenState extends State<TasaScreen> {
                 subtitle: 'Carga la tasa del euro BCV abajo para mostrar los montos en Bs.',
               )
             : FzHero(
-                leading: Text('TASA VIGENTE · 1 EURO',
-                    style: t.labelMedium?.copyWith(color: Fz.azul50, letterSpacing: .8)),
-                title: Money.tasa(tasa.valor),
+                leading: Column(children: [
+                  Text('TASA VIGENTE · 1 EURO', style: t.labelMedium?.copyWith(color: Fz.azul50, letterSpacing: .8)),
+                  const SizedBox(height: 4),
+                  FittedBox(child: Text(Money.tasa(tasa.valor), style: Fz.display(40, color: Fz.tarjeta))),
+                ]),
+                title: 'Euro BCV',
                 subtitle: 'Fecha valor ${Money.fecha(tasa.fechaValor)}',
                 child: Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
                   StatusPill(

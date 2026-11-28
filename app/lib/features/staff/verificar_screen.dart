@@ -114,7 +114,6 @@ class _VerificarScreenState extends State<VerificarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Pagos')),
       body: Column(children: [
