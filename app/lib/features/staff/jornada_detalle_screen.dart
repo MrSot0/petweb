@@ -78,11 +78,10 @@ class _JornadaDetalleScreenState extends State<JornadaDetalleScreen> {
               if (admin) IconButton(tooltip: 'Editar jornada', icon: const Icon(Icons.edit_rounded), onPressed: _editar),
             ],
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(58),
+              preferredSize: const Size.fromHeight(62),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: Container(
-                  height: 46,
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: Fz.tarjeta,
@@ -90,8 +89,8 @@ class _JornadaDetalleScreenState extends State<JornadaDetalleScreen> {
                     border: Border.all(color: Fz.tinta, width: Fz.borde),
                   ),
                   child: const TabBar(tabs: [
-                    Tab(text: 'Participantes'),
-                    Tab(text: 'Estadísticas'),
+                    Tab(height: 36, text: 'Participantes'),
+                    Tab(height: 36, text: 'Estadísticas'),
                   ]),
                 ),
               ),

@@ -141,7 +141,7 @@ class JornadaPortada extends StatelessWidget {
       ),
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
       child: SizedBox(
         height: height,
         width: double.infinity,
