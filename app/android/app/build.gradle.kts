@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.faunazulia.faunazulia"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37 // flutter_local_notifications exige 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -5,7 +5,10 @@ import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../citas/solicitar_visita_screen.dart';
+import '../citas/visita_comun.dart';
 import 'mis_citas_screen.dart';
+import 'mis_pagos_screen.dart';
 import 'owner_shell.dart';
 import 'precios_screen.dart';
 
@@ -64,8 +67,11 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  void _misCitas() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const MisCitasScreen()));
+  /// "Ver todas mis citas" lleva a la pestaña Citas.
+  void _misCitas() => OwnerShell.irA(context, 2);
+
+  Future<void> _abrir(Widget pantalla) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => pantalla));
     if (mounted) _refresh();
   }
 
@@ -90,8 +96,21 @@ class _HomeScreenState extends State<HomeScreen> {
             final d = snap.data!;
             final accesos = [
               _Acceso(icon: Icons.event_rounded, titulo: 'Jornadas', sub: 'Fechas y cupos', onTap: () => OwnerShell.irA(context, 1)),
-              _Acceso(icon: Icons.pets_rounded, titulo: 'Mis mascotas', sub: 'Fotos y datos', onTap: () => OwnerShell.irA(context, 2)),
-              _Acceso(icon: Icons.qr_code_2_rounded, titulo: 'Mis citas', sub: 'Tu código QR', onTap: _misCitas),
+              _Acceso(
+                  icon: Icons.calendar_month_rounded, titulo: 'Citas', sub: 'Tu QR y visitas', onTap: () => OwnerShell.irA(context, 2)),
+              _Acceso(
+                icon: Icons.add_home_rounded,
+                titulo: 'Pedir visita',
+                sub: 'Veterinario a domicilio',
+                onTap: () => _abrir(const SolicitarVisitaScreen()),
+              ),
+              _Acceso(
+                icon: Icons.receipt_long_rounded,
+                titulo: 'Mis pagos',
+                sub: 'Pagar y ver estado',
+                onTap: () => _abrir(const MisPagosScreen()),
+              ),
+              _Acceso(icon: Icons.pets_rounded, titulo: 'Mis mascotas', sub: 'Fotos y datos', onTap: () => OwnerShell.irA(context, 3)),
               _Acceso(
                 icon: Icons.sell_rounded,
                 titulo: 'Precios',
@@ -127,12 +146,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       for (var k = 0; k < accesos.length; k++)
                         FadeSlideIn(
                           index: k + 2,
-                          child: _AccesoTile(a: accesos[k], alterna: k == 1 || k == 2),
+                          child: _AccesoTile(a: accesos[k], alterna: k % 4 == 1 || k % 4 == 2),
                         ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  FadeSlideIn(index: 6, child: _TasaCard(tasa: d.tasa, error: d.tasaError)),
+                  FadeSlideIn(index: 8, child: _TasaCard(tasa: d.tasa, error: d.tasaError)),
                 ],
               ),
             );
@@ -195,8 +214,8 @@ class _ProximaCita extends StatelessWidget {
         Text(Money.fechaLarga(fecha), textAlign: TextAlign.center, style: t.bodyMedium),
         Text('${j['sede_nombre'] ?? ''}', textAlign: TextAlign.center, style: t.bodySmall),
         if (hayCodigo) ...[
-          const SizedBox(height: 6),
-          Text('Código ${i['codigo']}', textAlign: TextAlign.center, style: t.labelMedium),
+          const SizedBox(height: 2),
+          CodigoCopiable('${i['codigo']}'),
         ],
         const SizedBox(height: 12),
         if (hayCodigo)
@@ -207,7 +226,11 @@ class _ProximaCita extends StatelessWidget {
           ),
         if (i['estado'] == 'pendiente_pago') ...[
           const SizedBox(height: 10),
-          PopButton.tonal(label: 'Ir a pagar', icon: Icons.payments_rounded, onPressed: () => OwnerShell.irA(context, 3)),
+          PopButton.tonal(
+            label: 'Ir a pagar',
+            icon: Icons.payments_rounded,
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisPagosScreen())),
+          ),
         ],
         const SizedBox(height: 4),
         TextButton.icon(onPressed: onMisCitas, icon: const Icon(Icons.list_alt_rounded), label: const Text('Ver todas mis citas')),
