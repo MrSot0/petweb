@@ -33,13 +33,18 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
   @override
   void initState() {
     super.initState();
-    _url = Data.urlComprobante(p['comprobante_path'] as String?);
+    _url = Data.urlComprobante(staffStr(p['comprobante_path']));
   }
 
   Future<void> _resolver(String accion, {String? motivo}) async {
+    final id = staffStr(p['id']);
+    if (id == null) {
+      showInfo(context, 'Este pago no tiene identificador. Recarga la lista e inténtalo de nuevo.');
+      return;
+    }
     setState(() => _busy = true);
     try {
-      await Data.resolverPago(p['id'] as String, accion, motivo: motivo);
+      await Data.resolverPago(id, accion, motivo: motivo);
       if (!mounted) return;
       showInfo(context, switch (accion) {
         'verificar' => 'Pago verificado',
@@ -76,7 +81,6 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
     final motivo = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Fz.crema,
       builder: (_) => const _MotivoSheet(
         titulo: 'Rechazar pago',
         texto: 'El propietario verá este motivo y podrá reportar el pago de nuevo.',
@@ -91,7 +95,6 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
     final motivo = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Fz.crema,
       builder: (_) => const _MotivoSheet(
         titulo: 'Anular verificación',
         texto: 'El pago volverá a quedar sin validez. Escribe por qué (obligatorio).',
@@ -107,25 +110,40 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
     final t = Theme.of(context).textTheme;
     final prof = (p['profiles'] as Map?) ?? const {};
     final jor = (p['jornadas'] as Map?) ?? const {};
-    final ins = ((p['inscripciones'] as List?) ?? const []).cast<Map>();
+    final ins = ((p['inscripciones'] as List?) ?? const []).whereType<Map>().toList();
     final reportado = staffNum(p['monto_usd']);
     final esperado = ins.fold<double>(0, (s, i) => s + (staffNum(i['precio_total_usd']) ?? 0));
     final tasa = staffNum(p['tasa_eur_bcv']);
     final bs = staffNum(p['monto_bs']) ?? Money.aBs(reportado, tasa);
-    final tasaFecha = p['tasa_fecha'] as String?;
+    final tasaFecha = staffFecha(p['tasa_fecha']);
     final coincide = reportado != null && (reportado - esperado).abs() < 0.005;
-    final estado = p['estado'] as String?;
+    final estado = staffStr(p['estado']) ?? 'pendiente';
+    final nombre = staffStr(prof['nombre']);
+    final referencia = staffStr(p['referencia']);
+    final banco = staffStr(p['banco_emisor']);
+    final telEmisor = staffStr(p['telefono_emisor']);
+    final fechaPago = staffFecha(p['fecha_pago']);
+    final jorTitulo = staffStr(jor['titulo']);
+    final jorFecha = staffFecha(jor['fecha_inicio']);
+    final telefono = staffStr(prof['telefono']);
+    final verificadoAt = staffFecha(p['verificado_at']);
+    final motivo = staffStr(p['motivo_rechazo']);
     final admin = AppMode.of(context).isAdmin;
     final pm = p['metodo'] != 'efectivo_divisa';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text((prof['nombre'] as String?) ?? 'Pago'),
-          Text('Reportado ${staffHace(p['created_at'] as String?)}', style: t.bodySmall),
-        ]),
-      ),
+      appBar: AppBar(title: const Text('Detalle del pago')),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+        FadeSlideIn(
+          child: FzHero(
+            leading: FzAvatar(text: iniciales(nombre), size: 52, color: Fz.azul100),
+            title: Money.usd(reportado),
+            subtitle: '${nombre ?? 'Propietario'} · ${staffMetodo(staffStr(p['metodo']))} · '
+                'reportado ${staffHace(staffStr(p['created_at']))}',
+            child: Text(Money.bs(bs), style: t.titleMedium?.copyWith(color: Fz.tarjeta)),
+          ),
+        ),
+        const SizedBox(height: 16),
         // ---- Comprobante ----
         PopCard(
           padding: const EdgeInsets.all(8),
@@ -186,17 +204,17 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         // ---- Montos ----
         PopCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Montos', style: t.titleLarge),
+            Center(child: Text('Montos', style: t.titleLarge)),
             const SizedBox(height: 8),
             _fila(t, 'Reportado', Money.usd(reportado), bold: true),
             _fila(t, 'Esperado', Money.usd(esperado), sub: '${ins.length} ${ins.length == 1 ? 'inscripción' : 'inscripciones'}'),
             _fila(t, 'En Bs', Money.bs(bs),
                 sub: tasa == null
                     ? 'Sin tasa registrada'
-                    : 'Tasa euro BCV ${Money.tasa(tasa)}${tasaFecha != null ? ' del ${Money.fecha(DateTime.parse(tasaFecha))}' : ''} (congelada)'),
+                    : 'Tasa euro BCV ${Money.tasa(tasa)}${tasaFecha != null ? ' del ${Money.fecha(tasaFecha)}' : ''} (congelada)'),
             const SizedBox(height: 8),
             coincide
-                ? const StatusPill('El monto coincide', icon: Icons.check_circle_rounded, color: Fz.azulPastel)
+                ? const StatusPill('El monto coincide', icon: Icons.check_circle_rounded, color: Fz.azul200)
                 : StatusPill(
                     'Diferencia de ${Money.usd(((reportado ?? 0) - esperado).abs())}',
                     icon: Icons.warning_rounded,
@@ -209,18 +227,15 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         // ---- Datos del pago ----
         PopCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Datos del pago', style: t.titleLarge),
+            Center(child: Text('Datos del pago', style: t.titleLarge)),
             const SizedBox(height: 8),
-            _fila(t, 'Método', staffMetodo(p['metodo'] as String?)),
-            if (p['referencia'] != null) _copiable(t, 'Referencia', p['referencia'] as String),
-            if (p['banco_emisor'] != null) _fila(t, 'Banco', p['banco_emisor'] as String),
-            if (p['telefono_emisor'] != null) _copiable(t, 'Tel. emisor', p['telefono_emisor'] as String),
-            if (p['fecha_pago'] != null) _fila(t, 'Fecha', Money.fecha(DateTime.parse(p['fecha_pago'] as String))),
-            if (jor['titulo'] != null)
-              _fila(t, 'Jornada', jor['titulo'] as String,
-                  sub: jor['fecha_inicio'] != null
-                      ? Money.fechaLarga(DateTime.parse(jor['fecha_inicio'] as String))
-                      : null),
+            _fila(t, 'Método', staffMetodo(staffStr(p['metodo']))),
+            if (referencia != null) _copiable(t, 'Referencia', referencia),
+            if (banco != null) _fila(t, 'Banco', banco),
+            if (telEmisor != null) _copiable(t, 'Tel. emisor', telEmisor),
+            if (fechaPago != null) _fila(t, 'Fecha', Money.fecha(fechaPago)),
+            if (jorTitulo != null)
+              _fila(t, 'Jornada', jorTitulo, sub: jorFecha != null ? Money.fechaLarga(jorFecha) : null),
           ]),
         ),
         const SizedBox(height: 16),
@@ -228,15 +243,12 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         // ---- Propietario ----
         PopCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Propietario', style: t.titleLarge),
+            Center(child: Text('Propietario', style: t.titleLarge)),
             const SizedBox(height: 8),
-            _fila(t, 'Nombre', (prof['nombre'] as String?) ?? '—'),
-            _fila(t, 'Cédula', (prof['cedula'] as String?) ?? '—'),
-            if (prof['telefono'] != null)
-              _copiable(t, 'Teléfono', prof['telefono'] as String)
-            else
-              _fila(t, 'Teléfono', '—'),
-            if (prof['email'] != null) _fila(t, 'Correo', prof['email'] as String),
+            _fila(t, 'Nombre', nombre ?? '—'),
+            _fila(t, 'Cédula', staffStr(prof['cedula']) ?? '—'),
+            if (telefono != null) _copiable(t, 'Teléfono', telefono) else _fila(t, 'Teléfono', '—'),
+            if (staffStr(prof['email']) != null) _fila(t, 'Correo', staffStr(prof['email'])!),
           ]),
         ),
         const SizedBox(height: 16),
@@ -244,7 +256,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         // ---- Mascotas ----
         PopCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Mascotas', style: t.titleLarge),
+            Center(child: Text('Mascotas', style: t.titleLarge)),
             const SizedBox(height: 4),
             for (final i in ins)
               Padding(
@@ -254,7 +266,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(((i['pets'] as Map?)?['nombre'] as String?) ?? 'Mascota', style: t.titleMedium),
+                      Text(staffStr((i['pets'] as Map?)?['nombre']) ?? 'Mascota', style: t.titleMedium),
                       Text(
                         [
                           if (i['codigo'] != null) 'Cód. ${i['codigo']}',
@@ -267,7 +279,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
                   StatusPill(
                     i['incluye_kit'] == true ? 'Kit: sí' : 'Kit: no',
                     icon: i['incluye_kit'] == true ? Icons.medical_services_rounded : Icons.remove_rounded,
-                    color: i['incluye_kit'] == true ? Fz.azulPastel : Fz.cremaClaro,
+                    color: i['incluye_kit'] == true ? Fz.azul100 : Fz.tarjeta,
                     dashed: i['incluye_kit'] != true,
                   ),
                   const SizedBox(width: 8),
@@ -281,7 +293,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         if (estado != 'pendiente') ...[
           const SizedBox(height: 16),
           PopCard(
-            color: estado == 'verificado' ? Fz.azulPastel : Fz.frambuesaSuave,
+            color: estado == 'verificado' ? Fz.azul100 : Fz.frambuesaSuave,
             child: Row(children: [
               Icon(estado == 'verificado' ? Icons.check_circle_rounded : Icons.cancel_rounded),
               const SizedBox(width: 10),
@@ -292,12 +304,11 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
                       'verificado' => 'Verificado',
                       'rechazado' => 'Rechazado',
                       _ => 'Anulado',
-                    }} por ${staffRol(p['verificado_por_rol'] as String?)}',
+                    }} por ${staffRol(staffStr(p['verificado_por_rol']))}',
                     style: t.titleMedium,
                   ),
-                  if (p['verificado_at'] != null)
-                    Text(Money.fechaLarga(DateTime.parse(p['verificado_at'] as String)), style: t.bodySmall),
-                  if (p['motivo_rechazo'] != null) Text('Motivo: ${p['motivo_rechazo']}', style: t.bodyMedium),
+                  if (verificadoAt != null) Text(Money.fechaLarga(verificadoAt), style: t.bodySmall),
+                  if (motivo != null) Text('Motivo: $motivo', style: t.bodyMedium),
                 ]),
               ),
             ]),
@@ -390,15 +401,15 @@ class _MotivoSheetState extends State<_MotivoSheet> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.titulo, style: t.headlineSmall),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(widget.titulo, textAlign: TextAlign.center, style: t.headlineSmall),
           const SizedBox(height: 6),
-          Text(widget.texto, style: t.bodyMedium),
+          Text(widget.texto, textAlign: TextAlign.center, style: t.bodyMedium),
           if (widget.rapidos.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Wrap(spacing: 8, runSpacing: 8, children: [
+            Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
               for (final m in widget.rapidos)
                 ChoiceChip(
                   label: Text(m),
@@ -442,8 +453,8 @@ class _ZoomScreen extends StatelessWidget {
         backgroundColor: Fz.tinta,
         appBar: AppBar(
           backgroundColor: Fz.tinta,
-          foregroundColor: Fz.cremaClaro,
-          title: Text('Comprobante', style: Fz.display(22, color: Fz.cremaClaro)),
+          foregroundColor: Fz.tarjeta,
+          title: Text('Comprobante', style: Fz.display(19, color: Fz.tarjeta)),
         ),
         body: InteractiveViewer(
           minScale: 1,

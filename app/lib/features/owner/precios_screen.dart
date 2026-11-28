@@ -83,40 +83,51 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
               children: [
-                _tasaCard(context, tasa, tasaError),
-                const SectionTitle('Calcula tu precio'),
+                FadeSlideIn(
+                  child: FzHero(
+                    title: 'Precios',
+                    subtitle: 'Gatos desde \$10 · perros desde \$25 · en dólares',
+                    leading: const Icon(Icons.sell_rounded, size: 34, color: Fz.tarjeta),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FadeSlideIn(index: 1, child: _tasaCard(context, tasa, tasaError)),
+                const _Titulo('Calcula tu precio'),
                 _calculadora(context, p, tasa),
                 const SizedBox(height: 20),
                 Container(
                   decoration: BoxDecoration(
-                    color: Fz.cremaClaro,
+                    color: Fz.tarjeta,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(color: Fz.tinta, width: 2),
                   ),
                   child: TabBar(
                     controller: _tabs,
                     indicator: BoxDecoration(
-                      color: Fz.rosa,
+                      color: Fz.azul,
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: Fz.tinta, width: 2),
                     ),
                     indicatorSize: TabBarIndicatorSize.tab,
                     dividerColor: Colors.transparent,
-                    labelColor: Fz.tinta,
-                    unselectedLabelColor: Fz.variante,
-                    labelStyle: Fz.display(15, w: FontWeight.w700),
+                    labelColor: Fz.tarjeta,
+                    unselectedLabelColor: Fz.tinta,
+                    labelStyle: Theme.of(context).textTheme.titleSmall,
                     tabs: const [Tab(text: 'Gatos'), Tab(text: 'Perros'), Tab(text: 'Limpieza dental')],
                   ),
                 ),
                 const SizedBox(height: 14),
-                switch (_tabs.index) {
-                  0 => _gatos(context, p, tasa),
-                  1 => _perros(context, p, tasa),
-                  _ => _dental(context, p, tasa),
-                },
-                const SectionTitle('Antes de inscribir'),
+                FadeSlideIn(
+                  key: ValueKey(_tabs.index),
+                  child: switch (_tabs.index) {
+                    0 => _gatos(context, p, tasa),
+                    1 => _perros(context, p, tasa),
+                    _ => _dental(context, p, tasa),
+                  },
+                ),
+                const _Titulo('Antes de inscribir'),
                 _consideraciones(context),
-                const SectionTitle('Cómo pagar'),
+                const _Titulo('Cómo pagar'),
                 _metodos(context),
               ],
             ),
@@ -130,23 +141,25 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
   Widget _tasaCard(BuildContext context, Tasa? tasa, bool error) {
     final t = Theme.of(context).textTheme;
     return PopCard(
-      color: Fz.azulPastel,
+      color: Fz.azul50,
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.currency_exchange_rounded, size: 28),
+        const Icon(Icons.currency_exchange_rounded, size: 28, color: Fz.azul),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Tasa euro BCV', style: t.titleMedium),
+          child: Column(children: [
+            Text('Tasa euro BCV', textAlign: TextAlign.center, style: t.titleMedium),
             if (tasa != null) ...[
-              Text('${Money.tasa(tasa.valor)} · fecha valor ${Money.fecha(tasa.fechaValor)}', style: t.bodyLarge),
+              Text('${Money.tasa(tasa.valor)} · fecha valor ${Money.fecha(tasa.fechaValor)}',
+                  textAlign: TextAlign.center, style: t.bodyMedium),
               if (tasa.vieja)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: StatusPill('Tasa del ${DateFormat('dd/MM').format(tasa.fechaValor)}, puede variar',
-                      icon: Icons.warning_amber_rounded, color: Fz.rosaSuave, dashed: true),
+                      icon: Icons.warning_amber_rounded, color: Fz.tarjeta, dashed: true),
                 ),
             ] else
               Text(
+                textAlign: TextAlign.center,
                 error
                     ? 'No pudimos actualizar la tasa. Los precios en \$ no cambian; el monto en Bs se confirma al pagar.'
                     : 'Tasa no disponible; el monto en Bs se confirma al pagar.',
@@ -154,7 +167,10 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
               ),
           ]),
         ),
-        if (error) IconButton(tooltip: 'Reintentar', onPressed: _refresh, icon: const Icon(Icons.refresh_rounded)),
+        if (error)
+          IconButton(tooltip: 'Reintentar', onPressed: _refresh, icon: const Icon(Icons.refresh_rounded))
+        else
+          const SizedBox(width: 28),
       ]),
     );
   }
@@ -180,13 +196,13 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
     final cono = p.extra('cono', _especie);
     final total = base == null ? null : base + (_kit ? kit : 0) + (_cono ? cono : 0);
 
-    Widget chips<T>(List<(T, String)> ops, T sel, ValueChanged<T> on) => Wrap(spacing: 8, children: [
+    Widget chips<T>(List<(T, String)> ops, T sel, ValueChanged<T> on) => Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
           for (final (v, l) in ops)
             ChoiceChip(label: Text(l), selected: sel == v, onSelected: (_) => setState(() => on(v))),
         ]);
 
     return PopCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         chips<String>([('gato', 'Gato'), ('perro', 'Perro')], _especie, (v) => _especie = v),
         const SizedBox(height: 8),
         chips<String>([('macho', 'Macho'), ('hembra', 'Hembra')], _sexo, (v) => _sexo = v),
@@ -224,7 +240,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
                 : 'Sin el kit tendrás que comprar los medicamentos por tu cuenta.',
             style: t.bodySmall?.copyWith(fontWeight: _kit ? null : FontWeight.w700, color: _kit ? null : Fz.tinta),
           ),
-          secondary: const StatusPill('Recomendado', icon: Icons.thumb_up_rounded, color: Fz.rosa),
+          secondary: const StatusPill('Recomendado', icon: Icons.thumb_up_rounded, color: Fz.azul100),
         ),
         CheckboxListTile(
           value: _cono,
@@ -235,7 +251,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
         ),
         const Divider(height: 20),
         if (faltaPeso)
-          Text('Escribe el peso para calcular el precio.', style: t.bodyMedium)
+          Text('Escribe el peso para calcular el precio.', textAlign: TextAlign.center, style: t.bodyMedium)
         else if (total == null)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Icon(Icons.hourglass_top_rounded),
@@ -248,11 +264,12 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
             ),
           ])
         else ...[
-          Text(_kit ? 'Con kit recomendado' : 'Sin kit', style: t.bodySmall),
-          Text(Money.usd(total), style: Fz.display(36)),
-          Text(tasa == null ? 'Bs por confirmar al pagar' : _bs(tasa, total), style: t.titleMedium),
+          Text(_kit ? 'Con kit recomendado' : 'Sin kit', textAlign: TextAlign.center, style: t.bodySmall),
+          Text(Money.usd(total), textAlign: TextAlign.center, style: t.displaySmall?.copyWith(color: Fz.azul700)),
+          Text(tasa == null ? 'Bs por confirmar al pagar' : _bs(tasa, total), textAlign: TextAlign.center, style: t.titleMedium),
           const SizedBox(height: 4),
-          Text('Precio base ${Money.usd(base)} · Con kit recomendado ${Money.usd(base! + kit)}', style: t.bodySmall),
+          Text('Precio base ${Money.usd(base)} · Con kit recomendado ${Money.usd(base! + kit)}',
+              textAlign: TextAlign.center, style: t.bodySmall),
         ],
       ]),
     );
@@ -276,7 +293,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
   Widget _precio(BuildContext context, Tasa? tasa, double v, {String? pre, bool fuerte = true}) {
     final t = Theme.of(context).textTheme;
     return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-      Text('${pre ?? ''}${Money.usd(v)}', style: fuerte ? Fz.display(18, w: FontWeight.w700) : t.titleSmall),
+      Text('${pre ?? ''}${Money.usd(v)}', style: fuerte ? t.titleLarge?.copyWith(color: Fz.azul700) : t.titleSmall),
       if (tasa != null) Text(_bs(tasa, v), style: t.bodySmall),
     ]);
   }
@@ -303,8 +320,9 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
     }
 
     return PopCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Esterilización · Gatos', style: t.titleLarge),
+      color: Fz.azul50,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Esterilización · Gatos', textAlign: TextAlign.center, style: t.titleLarge),
         const SizedBox(height: 8),
         Row(children: [
           Expanded(child: Text('Gato', style: t.bodySmall)),
@@ -345,9 +363,10 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
           ]);
 
     return PopCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Esterilización · Perros', style: t.titleLarge),
-        Text('Precio base según peso y, debajo, con kit post-operatorio recomendado (+${Money.usd(kit)})', style: t.bodySmall),
+      color: Fz.azul50,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Esterilización · Perros', textAlign: TextAlign.center, style: t.titleLarge),
+        Text('Precio base según peso y, debajo, con kit post-operatorio recomendado (+${Money.usd(kit)})', textAlign: TextAlign.center, style: t.bodySmall),
         const SizedBox(height: 8),
         Row(children: [
           Expanded(child: Text('Peso', style: t.bodySmall)),
@@ -373,7 +392,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
             Expanded(child: Text('Más de 30 kg', style: t.titleSmall)),
-            const StatusPill('A convenir', icon: Icons.hourglass_top_rounded, color: Fz.rosaSuave, dashed: true),
+            const StatusPill('A convenir', icon: Icons.hourglass_top_rounded, color: Fz.tarjeta, dashed: true),
           ]),
         ),
         const SizedBox(height: 6),
@@ -395,9 +414,10 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
           ]),
         );
     return PopCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Limpieza dental', style: t.titleLarge),
-        Text('Con pulitura de esmalte', style: t.bodySmall),
+      color: Fz.azul50,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Limpieza dental', textAlign: TextAlign.center, style: t.titleLarge),
+        Text('Con pulitura de esmalte', textAlign: TextAlign.center, style: t.bodySmall),
         const SizedBox(height: 8),
         Row(children: [
           Expanded(child: Text('Paciente', style: t.bodySmall)),
@@ -412,7 +432,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
             Expanded(child: Text('Perros de más de 30 kg', style: t.titleSmall)),
-            const StatusPill('A convenir', icon: Icons.hourglass_top_rounded, color: Fz.rosaSuave, dashed: true),
+            const StatusPill('A convenir', icon: Icons.hourglass_top_rounded, color: Fz.tarjeta, dashed: true),
           ]),
         ),
         const SizedBox(height: 4),
@@ -423,7 +443,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
 
   // ---------- Consideraciones y pago ----------
   Widget _consideraciones(BuildContext context) => PopCard(
-        color: Fz.rosaSuave,
+        color: Fz.azul50,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _nota(context, Icons.pets_rounded,
               'Braquiocefálicos (hocico corto: pug, bulldog, persa…): precio a acordar según peso y raza.'),
@@ -433,7 +453,7 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
           _nota(context, Icons.medical_services_rounded, 'Prolapsos: no entran en la regla del doble; requieren evaluación especial.'),
           const SizedBox(height: 6),
           Text('En los casos a convenir, el administrador te confirma el precio antes de pagar.',
-              style: Theme.of(context).textTheme.bodySmall),
+              textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
         ]),
       );
 
@@ -446,11 +466,11 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Fz.azulPastel,
+                color: Fz.azul,
                 shape: BoxShape.circle,
                 border: Border.all(color: Fz.tinta, width: 2),
               ),
-              child: Icon(ic),
+              child: Icon(ic, color: Fz.tarjeta),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -475,9 +495,20 @@ class _PreciosScreenState extends State<PreciosScreen> with SingleTickerProvider
   Widget _nota(BuildContext context, IconData ic, String tx) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(ic, size: 20),
+          Icon(ic, size: 20, color: Fz.azul),
           const SizedBox(width: 8),
           Expanded(child: Text(tx, style: Theme.of(context).textTheme.bodyMedium)),
         ]),
+      );
+}
+
+class _Titulo extends StatelessWidget {
+  const _Titulo(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+        child: Text(text, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
       );
 }

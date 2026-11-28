@@ -5,7 +5,9 @@ import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import 'jornadas_screen.dart';
 import 'owner_shell.dart';
+import 'pets_screen.dart';
 import 'registrar_pago_screen.dart';
 
 /// Inscribir una o varias mascotas en una jornada.
@@ -170,13 +172,13 @@ class _InscribirScreenState extends State<InscribirScreen> {
         title: const Text('¡Inscripción lista!'),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Guarda tus códigos. Los vas a mostrar el día de la jornada.', style: t.bodyMedium),
+            Text('Guarda tus códigos. Los vas a mostrar el día de la jornada; el código QR queda en Inicio › Mis citas.', style: t.bodyMedium),
             const SizedBox(height: 12),
             for (final r in rows)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(children: [
-                  const Icon(Icons.qr_code_2_rounded, size: 22),
+                  const Icon(Icons.qr_code_2_rounded, size: 22, color: Fz.azul),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -283,14 +285,22 @@ class _InscribirScreenState extends State<InscribirScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
-              Text(j.titulo, style: t.titleLarge),
-              Text('${Money.fechaLarga(j.fecha)} · ${j.sede}', style: t.bodyMedium),
-              const SectionTitle('¿A quién inscribes?'),
-              for (final p in c.pets) ...[_petCard(context, c, p), const SizedBox(height: 14)],
+              FadeSlideIn(child: JornadaPortada(jornada: j, height: 110)),
+              const SizedBox(height: 10),
+              Text(j.titulo, textAlign: TextAlign.center, style: t.titleLarge),
+              Text('${Money.fechaLarga(j.fecha)} · ${j.sede}', textAlign: TextAlign.center, style: t.bodySmall),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+                child: Text('¿A quién inscribes?', textAlign: TextAlign.center, style: t.headlineSmall),
+              ),
+              for (var k = 0; k < c.pets.length; k++) ...[
+                FadeSlideIn(index: k + 1, child: _petCard(context, c, c.pets[k])),
+                const SizedBox(height: 14),
+              ],
               const SizedBox(height: 4),
               PopCard(
                 shadow: false,
-                color: Fz.rosaSuave,
+                color: Fz.azul50,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   _nota(context, Icons.health_and_safety_rounded, 'Precios válidos para animales sanos.'),
                   _nota(context, Icons.priority_high_rounded,
@@ -307,7 +317,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: const BoxDecoration(
-            color: Fz.cremaClaro,
+            color: Fz.tarjeta,
             border: Border(top: BorderSide(color: Fz.tinta, width: 2)),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -315,7 +325,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(_nItems == 0 ? 'Total' : 'Total · $_nItems ${_nItems == 1 ? 'servicio' : 'servicios'}', style: t.bodySmall),
-                  Text(Money.usd(tot.total), style: Fz.display(28)),
+                  Text(Money.usd(tot.total), style: t.headlineMedium?.copyWith(color: Fz.azul700)),
                 ]),
               ),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -360,27 +370,40 @@ class _InscribirScreenState extends State<InscribirScreen> {
     return Opacity(
       opacity: habil ? 1 : .6,
       child: PopCard(
-        color: s.alguna ? Fz.azulPastel : Fz.cremaClaro,
+        color: s.alguna ? Fz.azul50 : Fz.tarjeta,
         padding: const EdgeInsets.fromLTRB(8, 8, 14, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          InkWell(
+          Material(
+            color: s.alguna ? Fz.azul : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
-            onTap: habil ? () => _togglePet(p) : null,
-            child: Row(children: [
-              Transform.scale(
-                scale: 1.35,
-                child: Checkbox(value: s.alguna, onChanged: habil ? (_) => _togglePet(p) : null),
-              ),
-              const SizedBox(width: 4),
-              Icon(p.esPerro ? Icons.pets_rounded : Icons.cruelty_free_rounded, size: 26),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(p.nombre, style: t.titleLarge),
-                  Text(p.descripcion, style: t.bodyMedium),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: habil ? () => _togglePet(p) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  Transform.scale(
+                    scale: 1.3,
+                    child: Checkbox(
+                      value: s.alguna,
+                      onChanged: habil ? (_) => _togglePet(p) : null,
+                      fillColor: WidgetStatePropertyAll(s.alguna ? Fz.tarjeta : Fz.tarjeta),
+                      checkColor: Fz.azul,
+                      side: BorderSide(color: s.alguna ? Fz.tarjeta : Fz.tinta, width: 2),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  PetAvatar(esPerro: p.esPerro, url: p.fotoUrl, size: 46),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(p.nombre, style: t.titleLarge?.copyWith(color: s.alguna ? Fz.tarjeta : Fz.tinta)),
+                      Text(p.descripcion, style: t.bodySmall?.copyWith(color: s.alguna ? Fz.azul50 : Fz.variante)),
+                    ]),
+                  ),
                 ]),
               ),
-            ]),
+            ),
           ),
           if (p.esterilizada)
             Padding(
@@ -388,7 +411,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
               child: StatusPill(
                 j.limpiezaDental ? 'Ya esterilizada · solo limpieza dental' : 'Ya esterilizada',
                 icon: Icons.verified_rounded,
-                color: Fz.cremaClaro,
+                color: Fz.azul100,
               ),
             ),
           if (s.alguna) ...[
@@ -468,7 +491,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
       dense: false,
       title: Text(titulo, style: t.titleMedium),
       subtitle: sub == null ? null : Text(sub, style: t.bodySmall),
-      secondary: Text(precio == null ? 'Por confirmar' : Money.usd(precio), style: Fz.display(18, w: FontWeight.w700)),
+      secondary: Text(precio == null ? 'Por confirmar' : Money.usd(precio), style: t.titleLarge?.copyWith(color: Fz.azul700)),
     );
   }
 
@@ -485,7 +508,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
       controlAffinity: ListTileControlAffinity.leading,
       contentPadding: const EdgeInsets.only(left: 28),
       title: Text('$titulo · $etiqueta', style: t.titleSmall),
-      secondary: recomendado ? const Icon(Icons.thumb_up_rounded, size: 20) : null,
+      secondary: recomendado ? const Icon(Icons.thumb_up_rounded, size: 20, color: Fz.azul) : null,
     );
   }
 
@@ -504,7 +527,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
   Widget _nota(BuildContext context, IconData ic, String tx) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(ic, size: 18),
+          Icon(ic, size: 18, color: Fz.azul),
           const SizedBox(width: 8),
           Expanded(child: Text(tx, style: Theme.of(context).textTheme.bodyMedium)),
         ]),

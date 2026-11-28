@@ -72,46 +72,78 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
     }
     final vacio = grupos.isEmpty && porConfirmar.isEmpty && _pagos!.isEmpty;
 
+    final totalPend = pendientes.fold<double>(0, (s, i) => s + ((i['precio_total_usd'] as num?)?.toDouble() ?? 0));
+    final verificados = _pagos!.where((p) => p['estado'] == 'verificado').length;
+    var n = 0;
+    Widget titulo(String x) => Padding(
+          padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+          child: Text(x, textAlign: TextAlign.center, style: t.headlineSmall),
+        );
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
+          FadeSlideIn(
+            child: FzHero(
+              title: grupos.isEmpty ? 'Tus pagos' : 'Por pagar ${Money.usd(totalPend)}',
+              subtitle: grupos.isEmpty
+                  ? (_pagos!.isEmpty ? 'Aquí verás el estado de tus pagos' : '$verificados de ${_pagos!.length} verificados')
+                  : _tasa == null
+                      ? 'El monto en Bs se confirma al pagar'
+                      : '${Money.bs(Money.aBs(totalPend, _tasa!.valor))} · tasa euro BCV',
+              leading: const Icon(Icons.receipt_long_rounded, size: 34, color: Fz.tarjeta),
+            ),
+          ),
           if (vacio)
             const Padding(
-              padding: EdgeInsets.only(top: 40),
+              padding: EdgeInsets.only(top: 12),
               child: EmptyState(
                 icon: Icons.receipt_long_rounded,
                 title: 'Sin pagos por ahora',
                 message: 'Cuando inscribas a tu mascota en una jornada, aquí podrás pagar y ver el estado de tus pagos.',
               ),
             ),
-          if (grupos.isNotEmpty || porConfirmar.isNotEmpty) const SectionTitle('Por pagar'),
+          if (grupos.isNotEmpty || porConfirmar.isNotEmpty) titulo('Por pagar'),
           for (final g in grupos.values) ...[
-            _PorPagarCard(items: g, tasa: _tasa, onPagar: () => _pagar([for (final i in g) i['id'] as String])),
-            const SizedBox(height: 12),
-          ],
-          for (final i in porConfirmar) ...[
-            PopCard(
-              shadow: false,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${(i['pets'] as Map?)?['nombre'] ?? 'Mascota'}', style: t.titleMedium),
-                Text('${(i['jornadas'] as Map?)?['titulo'] ?? ''}', style: t.bodySmall),
-                const SizedBox(height: 8),
-                const StatusPill('Precio por confirmar', icon: Icons.help_outline_rounded, color: Fz.rosaSuave, dashed: true),
-                const SizedBox(height: 6),
-                Text('La administración fijará el precio y luego podrás pagar.', style: t.bodySmall),
-              ]),
+            FadeSlideIn(
+              index: ++n,
+              child: _PorPagarCard(
+                  items: g, tasa: _tasa, alterna: n.isEven, onPagar: () => _pagar([for (final i in g) i['id'] as String])),
             ),
             const SizedBox(height: 12),
           ],
-          if (_pagos!.isNotEmpty) const SectionTitle('Mis pagos'),
+          for (final i in porConfirmar) ...[
+            FadeSlideIn(
+              index: ++n,
+              child: PopCard(
+                shadow: false,
+                color: n.isEven ? Fz.azul50 : Fz.tarjeta,
+                child: Column(children: [
+                  Text('${(i['pets'] as Map?)?['nombre'] ?? 'Mascota'}', textAlign: TextAlign.center, style: t.titleMedium),
+                  Text('${(i['jornadas'] as Map?)?['titulo'] ?? ''}', textAlign: TextAlign.center, style: t.bodySmall),
+                  const SizedBox(height: 8),
+                  const StatusPill('Precio por confirmar', icon: Icons.help_outline_rounded, color: Fz.azul50, dashed: true),
+                  const SizedBox(height: 6),
+                  Text('La administración fijará el precio y luego podrás pagar.',
+                      textAlign: TextAlign.center, style: t.bodySmall),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_pagos!.isNotEmpty) titulo('Mis pagos'),
           for (final p in _pagos!) ...[
-            _PagoCard(
-              p: p,
-              onRepagar: () => _pagar([
-                for (final i in (p['inscripciones'] as List? ?? const [])) (i as Map)['id'] as String,
-              ]),
+            FadeSlideIn(
+              index: ++n,
+              child: _PagoCard(
+                p: p,
+                alterna: n.isEven,
+                onRepagar: () => _pagar([
+                  for (final i in (p['inscripciones'] as List? ?? const [])) (i as Map)['id'] as String,
+                ]),
+              ),
             ),
             const SizedBox(height: 12),
           ],
@@ -122,7 +154,8 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
 }
 
 class _PorPagarCard extends StatelessWidget {
-  const _PorPagarCard({required this.items, required this.tasa, required this.onPagar});
+  const _PorPagarCard({required this.items, required this.tasa, required this.onPagar, this.alterna = false});
+  final bool alterna;
   final List<Map<String, dynamic>> items;
   final Tasa? tasa;
   final VoidCallback onPagar;
@@ -134,9 +167,10 @@ class _PorPagarCard extends StatelessWidget {
     final total = items.fold<double>(0, (s, i) => s + ((i['precio_total_usd'] as num?)?.toDouble() ?? 0));
     final fecha = j?['fecha_inicio'] == null ? null : DateTime.tryParse(j!['fecha_inicio'] as String);
     return PopCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${j?['titulo'] ?? 'Jornada'}', style: t.titleLarge),
-        if (fecha != null) Text(Money.fechaLarga(fecha), style: t.bodySmall),
+      color: alterna ? Fz.azul50 : Fz.tarjeta,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('${j?['titulo'] ?? 'Jornada'}', textAlign: TextAlign.center, style: t.titleLarge),
+        if (fecha != null) Text(Money.fechaLarga(fecha), textAlign: TextAlign.center, style: t.bodySmall),
         const SizedBox(height: 8),
         for (final i in items)
           Row(children: [
@@ -144,28 +178,25 @@ class _PorPagarCard extends StatelessWidget {
             Text(Money.usd(i['precio_total_usd'] as num?), style: t.titleSmall),
           ]),
         const Divider(height: 18),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Total ${Money.usd(total)}', style: Fz.display(22)),
-              Text(
+        Text('Total', textAlign: TextAlign.center, style: t.bodySmall),
+        Text(Money.usd(total), textAlign: TextAlign.center, style: t.headlineMedium?.copyWith(color: Fz.azul700)),
+        Text(
+                textAlign: TextAlign.center,
                 tasa == null
                     ? 'Tasa no disponible; el monto en Bs se confirma al pagar.'
                     : '${Money.bs(Money.aBs(total, tasa!.valor))} · ${tasa!.vieja ? 'tasa del ${Money.fecha(tasa!.fechaValor).substring(0, 5)}, puede variar' : 'tasa del ${Money.fecha(tasa!.fechaValor)}'}',
                 style: t.bodySmall,
               ),
-            ]),
-          ),
-          const SizedBox(width: 8),
-          PopButton(label: 'Pagar', icon: Icons.payments_rounded, expand: false, onPressed: onPagar),
-        ]),
+        const SizedBox(height: 10),
+        PopButton(label: 'Pagar', icon: Icons.payments_rounded, onPressed: onPagar),
       ]),
     );
   }
 }
 
 class _PagoCard extends StatelessWidget {
-  const _PagoCard({required this.p, required this.onRepagar});
+  const _PagoCard({required this.p, required this.onRepagar, this.alterna = false});
+  final bool alterna;
   final Map<String, dynamic> p;
   final VoidCallback onRepagar;
 
@@ -182,17 +213,19 @@ class _PagoCard extends StatelessWidget {
     final rol = p['verificado_por_rol'] as String?;
 
     final (String label, IconData icon, Color color, bool dashed) = switch (estado) {
-      'verificado' => ('Verificado', Icons.check_circle_rounded, Fz.azulPastel, false),
+      'verificado' => ('Verificado', Icons.check_circle_rounded, Fz.azul100, false),
       'rechazado' => ('Rechazado', Icons.error_outline_rounded, Fz.frambuesaSuave, false),
-      'anulado' => ('Anulado', Icons.block_rounded, Fz.cremaClaro, false),
-      _ => ('En revisión', Icons.schedule_rounded, Fz.rosaSuave, true),
+      'anulado' => ('Anulado', Icons.block_rounded, Fz.tarjeta, false),
+      _ => ('En revisión', Icons.schedule_rounded, Fz.azul50, true),
     };
 
     final card = PopCard(
       shadow: !dashed,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(mascotas.isEmpty ? metodo : '$mascotas · $metodo', style: t.titleMedium),
+      color: alterna ? Fz.azul50 : Fz.tarjeta,
+      child: Column(children: [
+        Text(mascotas.isEmpty ? metodo : '$mascotas · $metodo', textAlign: TextAlign.center, style: t.titleMedium),
         Text(
+          textAlign: TextAlign.center,
           [
             if (p['referencia'] != null) 'Ref. ${p['referencia']}',
             if (fechaPago != null) Money.fecha(fechaPago),
@@ -203,24 +236,25 @@ class _PagoCard extends StatelessWidget {
         const SizedBox(height: 8),
         StatusPill(label, icon: icon, color: color, dashed: dashed),
         const SizedBox(height: 8),
-        Text(Money.usd(p['monto_usd'] as num?), style: Fz.display(24)),
+        Text(Money.usd(p['monto_usd'] as num?), style: t.headlineMedium?.copyWith(color: Fz.azul700)),
         if (p['monto_bs'] != null)
           Text(
+            textAlign: TextAlign.center,
             '${Money.bs(p['monto_bs'] as num)}'
             '${p['tasa_eur_bcv'] != null ? ' · tasa ${Money.tasa(p['tasa_eur_bcv'] as num)}' : ''}'
             '${tasaFecha != null ? ' del ${Money.fecha(tasaFecha)}' : ''}',
             style: t.bodySmall,
           )
         else if (p['metodo'] == 'efectivo_divisa')
-          Text('En billetes de dólares', style: t.bodySmall),
+          Text('En billetes de dólares', textAlign: TextAlign.center, style: t.bodySmall),
         if (estado == 'pendiente') ...[
           const SizedBox(height: 6),
-          Text('Lo revisa el contador o la administración.', style: t.bodySmall),
+          Text('Lo revisa el contador o la administración.', textAlign: TextAlign.center, style: t.bodySmall),
         ],
         if (estado == 'verificado') ...[
           const SizedBox(height: 6),
-          Row(children: [
-            const Icon(Icons.verified_user_rounded, size: 18),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.verified_user_rounded, size: 18, color: Fz.azul),
             const SizedBox(width: 6),
             Text(rol == 'contador' ? 'Lo verificó el contador' : 'Lo verificó la administración', style: t.bodyMedium),
           ]),
@@ -238,11 +272,11 @@ class _PagoCard extends StatelessWidget {
             child: Text('Motivo: ${p['motivo_rechazo'] ?? 'sin indicar'}', style: t.bodyMedium),
           ),
           const SizedBox(height: 10),
-          PopButton.accent(label: 'Volver a pagar', icon: Icons.refresh_rounded, onPressed: onRepagar),
+          PopButton(label: 'Volver a pagar', icon: Icons.refresh_rounded, onPressed: onRepagar),
         ],
         if (estado == 'anulado') ...[
           const SizedBox(height: 6),
-          Text('Este pago fue anulado por la administración.', style: t.bodySmall),
+          Text('Este pago fue anulado por la administración.', textAlign: TextAlign.center, style: t.bodySmall),
         ],
       ]),
     );
@@ -259,7 +293,7 @@ class _DashedBorder extends CustomPainter {
     final path = Path()..addRRect(rr);
     // Pinta huecos crema sobre el borde sólido para que se vea punteado.
     final gap = Paint()
-      ..color = Fz.crema
+      ..color = Fz.fondo
       ..style = PaintingStyle.stroke
       ..strokeWidth = Fz.borde + 1.5;
     for (final m in path.computeMetrics()) {

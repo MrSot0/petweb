@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/data.dart';
 import '../../core/money.dart';
@@ -80,6 +81,19 @@ class _TasaScreenState extends State<TasaScreen> {
     }
   }
 
+  Future<void> _pegar() async {
+    final d = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    // Toma el primer número del texto copiado ("Euro 1.008,65 Bs" -> "1.008,65").
+    final m = RegExp(r'\d[\d.,]*').firstMatch(d?.text ?? '');
+    final n = m == null ? null : parseBs(m.group(0)!);
+    if (n == null || n <= 0) {
+      showInfo(context, 'El portapapeles no tiene un número de tasa.');
+      return;
+    }
+    setState(() => _valor.text = m!.group(0)!);
+  }
+
   Future<void> _elegirFecha() async {
     final hoy = _hoy();
     final d = await showDatePicker(
@@ -134,47 +148,35 @@ class _TasaScreenState extends State<TasaScreen> {
     final tasa = _tasa;
     final preview = parseBs(_valor.text);
     return ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
-      PopCard(
-        color: Fz.azul,
+      FadeSlideIn(
         child: tasa == null
-            ? Row(children: [
-                const Icon(Icons.info_rounded, color: Fz.cremaClaro),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text('Aún no hay tasa cargada. Carga una abajo.',
-                      style: t.titleMedium?.copyWith(color: Fz.cremaClaro)),
-                ),
-              ])
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('TASA VIGENTE · 1 EURO', style: t.titleSmall?.copyWith(color: Fz.cremaClaro, letterSpacing: .6)),
-                const SizedBox(height: 4),
-                Text(Money.tasa(tasa.valor), style: Fz.display(40, color: Fz.cremaClaro)),
-                const SizedBox(height: 6),
-                Text('Fecha valor ${Money.fecha(tasa.fechaValor)}',
-                    style: t.bodyMedium?.copyWith(color: Fz.cremaClaro)),
-                const SizedBox(height: 10),
-                Wrap(spacing: 8, runSpacing: 8, children: [
+            ? const FzHero(
+                leading: Icon(Icons.currency_exchange_rounded, color: Fz.tarjeta, size: 34),
+                title: 'Sin tasa cargada',
+                subtitle: 'Carga la tasa del euro BCV abajo para mostrar los montos en Bs.',
+              )
+            : FzHero(
+                leading: Text('TASA VIGENTE · 1 EURO',
+                    style: t.labelMedium?.copyWith(color: Fz.azul50, letterSpacing: .8)),
+                title: Money.tasa(tasa.valor),
+                subtitle: 'Fecha valor ${Money.fecha(tasa.fechaValor)}',
+                child: Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
                   StatusPill(
                     tasa.manual ? 'Cargada a mano' : 'Automática (API)',
                     icon: tasa.manual ? Icons.edit_rounded : Icons.sync_rounded,
-                    color: Fz.cremaClaro,
+                    color: Fz.tarjeta,
                   ),
                   if (tasa.vieja)
-                    const StatusPill('Más de 36 h: puede variar', icon: Icons.warning_rounded, color: Fz.rosa),
+                    const StatusPill('Más de 36 h: puede variar', icon: Icons.warning_rounded, color: Fz.azul200),
                 ]),
-              ]),
+              ),
       ),
       const SizedBox(height: 12),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.info_outline_rounded, size: 18, color: Fz.variante),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            'Mientras no esté activa la API, la tasa se carga a mano. Contador y administración pueden cargarla.',
-            style: t.bodySmall,
-          ),
-        ),
-      ]),
+      Text(
+        'Mientras no esté activa la API, la tasa se carga a mano. Contador y administración pueden cargarla.',
+        textAlign: TextAlign.center,
+        style: t.bodySmall,
+      ),
       const SectionTitle('Cargar tasa manual'),
       PopCard(
         child: Form(
@@ -183,11 +185,16 @@ class _TasaScreenState extends State<TasaScreen> {
             TextFormField(
               controller: _valor,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Bs por euro',
                 hintText: '1.008,65',
-                suffixText: 'Bs',
+                prefixIcon: const Icon(Icons.euro_rounded),
                 helperText: 'Usa coma para los decimales.',
+                suffixIcon: TextButton.icon(
+                  onPressed: _pegar,
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  label: const Text('Pegar'),
+                ),
               ),
               onChanged: (_) => setState(() {}),
               validator: (v) {
@@ -218,13 +225,13 @@ class _TasaScreenState extends State<TasaScreen> {
             ),
             if (preview != null && preview > 0) ...[
               PopCard(
-                color: Fz.azulPastel,
+                color: Fz.azul100,
                 shadow: false,
                 padding: const EdgeInsets.all(12),
-                child: Row(children: [
-                  const Icon(Icons.calculate_rounded),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.calculate_rounded, color: Fz.azul),
                   const SizedBox(width: 10),
-                  Expanded(
+                  Flexible(
                     child: Text(r'$20 = ' '${Money.bs(Money.aBs(20, preview))}', style: t.titleMedium),
                   ),
                 ]),
@@ -242,27 +249,33 @@ class _TasaScreenState extends State<TasaScreen> {
       ),
       const SectionTitle('Historial'),
       if ((_hist ?? const []).isEmpty)
-        Text('Sin registros todavía.', style: t.bodyMedium)
+        Text('Sin registros todavía.', textAlign: TextAlign.center, style: t.bodyMedium)
       else
         PopCard(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Column(children: [
-            for (final (i, h) in _hist!.indexed) ...[
+            for (final (i, h) in (_hist ?? const <Map<String, dynamic>>[]).indexed) ...[
               if (i > 0) const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Row(children: [
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(Money.fecha(DateTime.parse(h['fecha_valor'] as String)), style: t.titleMedium),
-                      if ((h['motivo'] as String?)?.isNotEmpty == true) Text(h['motivo'] as String, style: t.bodySmall),
+                      Text(
+                        DateTime.tryParse(h['fecha_valor']?.toString() ?? '') == null
+                            ? '—'
+                            : Money.fecha(DateTime.parse(h['fecha_valor'].toString())),
+                        style: t.titleMedium,
+                      ),
+                      if ((h['motivo']?.toString() ?? '').isNotEmpty) Text(h['motivo'].toString(), style: t.bodySmall),
                     ]),
                   ),
-                  Text(Money.tasa((h['valor'] as num)), style: t.titleMedium),
+                  Text(h['valor'] is num ? Money.tasa(h['valor'] as num) : '—', style: t.titleMedium),
                   const SizedBox(width: 10),
                   StatusPill(
                     h['manual'] == true ? 'Manual' : 'API',
                     icon: h['manual'] == true ? Icons.edit_rounded : Icons.sync_rounded,
+                    color: h['manual'] == true ? Fz.tarjeta : Fz.azul100,
                     dashed: h['manual'] == true,
                   ),
                 ]),
