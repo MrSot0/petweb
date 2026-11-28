@@ -34,29 +34,33 @@ class PrecioEstimadoBox extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Fz.azulPastel,
+        color: Fz.azul100,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Fz.tinta, width: 2),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(titulo ?? 'Precio estimado de esterilización', style: t.titleSmall),
+      child: Column(children: [
+        Text(titulo ?? 'Precio estimado de esterilización', textAlign: TextAlign.center, style: t.titleSmall),
         const SizedBox(height: 6),
         if (p == null) ...[
-          Row(children: [
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Icon(Icons.help_outline_rounded, size: 20),
             const SizedBox(width: 6),
-            Text('Precio por confirmar', style: Fz.display(20)),
+            Text('Precio por confirmar', style: t.titleLarge),
           ]),
           const SizedBox(height: 4),
           Text('Perros de más de 30 kg y razas de hocico corto: la administración fija el precio antes del pago.',
-              style: t.bodySmall),
+              textAlign: TextAlign.center, style: t.bodySmall),
         ] else ...[
-          Text('Precio base ${Money.usd(p.base)}${bs(p.base)}', style: t.bodyMedium),
+          Text('Con kit recomendado', textAlign: TextAlign.center, style: t.bodySmall),
+          Text(Money.usd(p.conKit), textAlign: TextAlign.center, style: t.headlineMedium?.copyWith(color: Fz.azul700)),
+          if (tasa != null) Text(Money.bs(Money.aBs(p.conKit, tasa!.valor)), textAlign: TextAlign.center, style: t.titleSmall),
           const SizedBox(height: 2),
-          Text('Con kit recomendado ${Money.usd(p.conKit)}${bs(p.conKit)}', style: Fz.display(18, w: FontWeight.w700)),
-          if (kit != null) Text('El kit post-operatorio (${Money.usd(kit)}) es opcional.', style: t.bodySmall),
+          Text('Precio base ${Money.usd(p.base)}${bs(p.base)}', textAlign: TextAlign.center, style: t.bodyMedium),
+          if (kit != null)
+            Text('El kit post-operatorio (${Money.usd(kit)}) es opcional.', textAlign: TextAlign.center, style: t.bodySmall),
           const SizedBox(height: 4),
           Text(
+            textAlign: TextAlign.center,
             tasa == null
                 ? 'Tasa no disponible; el monto en Bs se confirma al pagar.'
                 : tasa!.vieja
@@ -79,21 +83,19 @@ String edadTexto(int? meses) {
   return [pa, pm].where((s) => s.isNotEmpty).join(' y ');
 }
 
+/// Avatar de mascota: su foto si la tiene; si no, una huella.
 class PetAvatar extends StatelessWidget {
-  const PetAvatar({super.key, required this.esPerro, this.size = 56});
+  const PetAvatar({super.key, required this.esPerro, this.size = 56, this.url});
   final bool esPerro;
   final double size;
+  final String? url;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: esPerro ? Fz.azulPastel : Fz.rosa,
-          shape: BoxShape.circle,
-          border: Border.all(color: Fz.tinta, width: Fz.borde),
-        ),
-        child: Icon(Icons.pets_rounded, color: Fz.tinta, size: size * .5),
+  Widget build(BuildContext context) => FzAvatar(
+        url: url,
+        size: size,
+        icon: esPerro ? Icons.pets_rounded : Icons.cruelty_free_rounded,
+        color: esPerro ? Fz.azul100 : Fz.azul200,
       );
 }
 
@@ -105,6 +107,39 @@ class PetsScreen extends StatefulWidget {
 }
 
 class _PetsScreenState extends State<PetsScreen> {
+  Widget _petCard(BuildContext context, Pet p, bool alterna) {
+    final t = Theme.of(context).textTheme;
+    return PopCard(
+      color: alterna ? Fz.azul50 : Fz.tarjeta,
+      onTap: () => _abrir(p),
+      child: Column(children: [
+        Row(children: [
+          PetAvatar(esPerro: p.esPerro, url: p.fotoUrl, size: 68),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(p.nombre, style: t.titleLarge),
+              Text(p.descripcion, style: t.bodyMedium),
+              Text(edadTexto(p.edadMeses), style: t.bodySmall),
+              const SizedBox(height: 6),
+              StatusPill(
+                p.esterilizada ? 'Esterilizada' : 'Sin esterilizar',
+                icon: p.esterilizada ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                color: p.esterilizada ? Fz.azul100 : Fz.tarjeta,
+                dashed: !p.esterilizada,
+              ),
+            ]),
+          ),
+          const Icon(Icons.edit_rounded, color: Fz.azul),
+        ]),
+        if (!p.esterilizada && _precios != null) ...[
+          const SizedBox(height: 12),
+          PrecioEstimadoBox(precio: precioEsterilizacion(_precios!, p), tasa: _tasa),
+        ],
+      ]),
+    );
+  }
+
   List<Pet>? _pets;
   Precios? _precios;
   Tasa? _tasa;
@@ -162,8 +197,13 @@ class _PetsScreenState extends State<PetsScreen> {
     if (pets.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
-        child: ListView(children: [
-          const SizedBox(height: 40),
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: [
+          const FzHero(
+            title: 'Mis mascotas',
+            subtitle: 'Registra a tus perros y gatos',
+            leading: Icon(Icons.pets_rounded, size: 36, color: Fz.tarjeta),
+          ),
+          const SizedBox(height: 12),
           EmptyState(
             icon: Icons.pets_rounded,
             title: 'Aún no tienes mascotas',
@@ -175,45 +215,36 @@ class _PetsScreenState extends State<PetsScreen> {
       );
     }
     final t = Theme.of(context).textTheme;
+    final sinEsterilizar = pets.where((p) => !p.esterilizada).length;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text(
-            '${pets.length} ${pets.length == 1 ? 'peludo registrado' : 'peludos registrados'}. Toca una tarjeta para editarla.',
-            style: t.bodyMedium?.copyWith(color: Fz.variante),
-          ),
-          const SizedBox(height: 12),
-          for (final p in pets) ...[
-            PopCard(
-              onTap: () => _abrir(p),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  PetAvatar(esPerro: p.esPerro),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(p.nombre, style: t.titleLarge),
-                      Text(p.descripcion, style: t.bodyMedium),
-                      Text(edadTexto(p.edadMeses), style: t.bodySmall),
-                    ]),
-                  ),
-                  const Icon(Icons.edit_rounded),
+          FadeSlideIn(
+            child: FzHero(
+              title: 'Mis mascotas',
+              subtitle: '${pets.length} ${pets.length == 1 ? 'peludo registrado' : 'peludos registrados'}'
+                  '${sinEsterilizar > 0 ? ' · $sinEsterilizar sin esterilizar' : ''}',
+              leading: SizedBox(
+                height: 56,
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  for (final p in pets.take(4))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: PetAvatar(esPerro: p.esPerro, url: p.fotoUrl, size: 50),
+                    ),
                 ]),
-                const SizedBox(height: 10),
-                StatusPill(
-                  p.esterilizada ? 'Esterilizada' : 'Sin esterilizar',
-                  icon: p.esterilizada ? Icons.check_circle_rounded : Icons.schedule_rounded,
-                  color: p.esterilizada ? Fz.azulPastel : Fz.rosaSuave,
-                  dashed: !p.esterilizada,
-                ),
-                if (!p.esterilizada && _precios != null) ...[
-                  const SizedBox(height: 10),
-                  PrecioEstimadoBox(precio: precioEsterilizacion(_precios!, p), tasa: _tasa),
-                ],
-              ]),
+              ),
             ),
+          ),
+          const SizedBox(height: 10),
+          Text('Toca una tarjeta para editarla o agregarle foto.',
+              textAlign: TextAlign.center, style: t.bodySmall),
+          const SizedBox(height: 12),
+          for (var i = 0; i < pets.length; i++) ...[
+            FadeSlideIn(index: i + 1, child: _petCard(context, pets[i], i.isOdd)),
             const SizedBox(height: 14),
           ],
           PopButton(label: 'Agregar mascota', icon: Icons.add_rounded, onPressed: () => _abrir()),

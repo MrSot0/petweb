@@ -5,10 +5,11 @@ import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import 'mis_citas_screen.dart';
 import 'owner_shell.dart';
 import 'precios_screen.dart';
 
-/// Inicio del propietario: saludo, próxima cita, accesos y tasa euro BCV.
+/// Inicio del propietario: saludo, próxima cita (con QR), accesos y tasa euro BCV.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -63,6 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
+  void _misCitas() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const MisCitasScreen()));
+    if (mounted) _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,41 +88,51 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
             final d = snap.data!;
+            final accesos = [
+              _Acceso(icon: Icons.event_rounded, titulo: 'Jornadas', sub: 'Fechas y cupos', onTap: () => OwnerShell.irA(context, 1)),
+              _Acceso(icon: Icons.pets_rounded, titulo: 'Mis mascotas', sub: 'Fotos y datos', onTap: () => OwnerShell.irA(context, 2)),
+              _Acceso(icon: Icons.qr_code_2_rounded, titulo: 'Mis citas', sub: 'Tu código QR', onTap: _misCitas),
+              _Acceso(
+                icon: Icons.sell_rounded,
+                titulo: 'Precios',
+                sub: 'Gatos desde \$10',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PreciosScreen())),
+              ),
+            ];
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
-                  _Saludo(perfil: d.perfil),
+                  FadeSlideIn(child: _Saludo(perfil: d.perfil)),
                   const SizedBox(height: 16),
-                  if (d.proxima != null) _ProximaCita(i: d.proxima!) else const _SinCita(),
-                  const SectionTitle('¿Qué quieres hacer?'),
-                  _Acceso(
-                    icon: Icons.event_rounded,
-                    color: Fz.azulPastel,
-                    titulo: 'Jornadas',
-                    sub: 'Fechas, sedes y cupos disponibles',
-                    onTap: () => OwnerShell.irA(context, 1),
+                  FadeSlideIn(
+                    index: 1,
+                    child: d.proxima != null ? _ProximaCita(i: d.proxima!, onMisCitas: _misCitas) : const _SinCita(),
                   ),
-                  const SizedBox(height: 12),
-                  _Acceso(
-                    icon: Icons.pets_rounded,
-                    color: Fz.rosa,
-                    titulo: 'Mis mascotas',
-                    sub: 'Registra a tus perros y gatos',
-                    onTap: () => OwnerShell.irA(context, 2),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 22, 4, 12),
+                    child: Text('¿Qué quieres hacer?',
+                        textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
                   ),
-                  const SizedBox(height: 12),
-                  _Acceso(
-                    icon: Icons.sell_rounded,
-                    color: Fz.rosaSuave,
-                    titulo: 'Precios',
-                    sub: 'Desde \$10 gatos · desde \$25 perros',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PreciosScreen())),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 1.05,
+                    children: [
+                      for (var k = 0; k < accesos.length; k++)
+                        FadeSlideIn(
+                          index: k + 2,
+                          child: _AccesoTile(a: accesos[k], alterna: k == 1 || k == 2),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 20),
-                  _TasaCard(tasa: d.tasa, error: d.tasaError),
+                  FadeSlideIn(index: 6, child: _TasaCard(tasa: d.tasa, error: d.tasaError)),
                 ],
               ),
             );
@@ -133,45 +149,26 @@ class _Saludo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     final nombre = ((perfil?['nombre'] as String?) ?? '').trim();
     final pila = nombre.isEmpty ? '' : nombre.split(RegExp(r'\s+')).first;
     final hoy = DateFormat("EEEE d 'de' MMMM", 'es').format(DateTime.now());
-    return Row(children: [
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(hoy[0].toUpperCase() + hoy.substring(1), style: t.bodyMedium?.copyWith(color: Fz.variante)),
-          Text(pila.isEmpty ? '¡Hola!' : 'Hola, $pila', style: t.displaySmall),
-        ]),
+    return FzHero(
+      leading: FzAvatar(
+        url: Data.fotoUrl(perfil?['avatar_path'] as String?),
+        text: iniciales(nombre),
+        size: 76,
+        color: Fz.azul100,
       ),
-      const FzLogo(size: 48),
-    ]);
-  }
-}
-
-/// Estado de inscripción → etiqueta con icono, texto y color.
-StatusPill _pillEstado(String? e) {
-  switch (e) {
-    case 'precio_por_confirmar':
-      return const StatusPill('Precio por confirmar', icon: Icons.hourglass_top_rounded, color: Fz.rosaSuave, dashed: true);
-    case 'pendiente_pago':
-      return const StatusPill('Falta pagar', icon: Icons.payments_rounded, color: Fz.rosa);
-    case 'pago_en_revision':
-      return const StatusPill('Pago en revisión', icon: Icons.manage_search_rounded, color: Fz.azulPastel, dashed: true);
-    case 'confirmada':
-      return const StatusPill('Confirmada', icon: Icons.check_circle_rounded, color: Fz.azulPastel);
-    case 'atendida':
-      return const StatusPill('Atendida', icon: Icons.verified_rounded, color: Fz.cremaClaro);
-    case 'cancelada':
-      return const StatusPill('Cancelada', icon: Icons.cancel_rounded, color: Fz.frambuesaSuave);
-    default:
-      return StatusPill(e ?? '—', icon: Icons.info_rounded);
+      title: pila.isEmpty ? '¡Hola!' : 'Hola, $pila',
+      subtitle: hoy[0].toUpperCase() + hoy.substring(1),
+    );
   }
 }
 
 class _ProximaCita extends StatelessWidget {
-  const _ProximaCita({required this.i});
+  const _ProximaCita({required this.i, required this.onMisCitas});
   final Map<String, dynamic> i;
+  final VoidCallback onMisCitas;
 
   @override
   Widget build(BuildContext context) {
@@ -184,54 +181,39 @@ class _ProximaCita extends StatelessWidget {
         .inDays;
     final servicio = i['servicio'] == 'limpieza_dental' ? 'limpieza dental' : 'esterilización';
     final faltan = dias <= 0 ? 'Es hoy' : (dias == 1 ? 'Es mañana' : 'Faltan $dias días');
+    final hayCodigo = i['codigo'] != null;
     return PopCard(
-      color: Fz.azulPastel,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.event_available_rounded, color: Fz.tinta),
-          const SizedBox(width: 8),
-          Expanded(child: Text('Tu próxima cita', style: t.titleMedium)),
-          _pillEstado(i['estado'] as String?),
-        ]),
+      color: Fz.azul50,
+      child: Column(children: [
+        Text('Tu próxima cita', textAlign: TextAlign.center, style: t.titleSmall?.copyWith(color: Fz.azul700)),
+        const SizedBox(height: 4),
+        Text('${pet['nombre'] ?? 'Tu mascota'} · $servicio', textAlign: TextAlign.center, style: t.headlineSmall),
         const SizedBox(height: 8),
-        Text('${pet['nombre'] ?? 'Tu mascota'} · $servicio', style: t.headlineSmall),
-        const SizedBox(height: 8),
-        _linea(context, Icons.schedule_rounded, Money.fechaLarga(fecha)),
-        _linea(context, Icons.location_on_rounded, '${j['sede_nombre'] ?? ''}'),
-        _linea(context, Icons.hourglass_top_rounded, faltan),
-        if (i['codigo'] != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Fz.cremaClaro,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Fz.tinta, width: 2),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.qr_code_2_rounded, size: 20),
-              const SizedBox(width: 6),
-              Text('Mi código: ', style: t.bodyMedium),
-              Text('${i['codigo']}', style: Fz.display(17, w: FontWeight.w700)),
-            ]),
+        pillEstadoInscripcion(i['estado'] as String?),
+        const SizedBox(height: 10),
+        Text(faltan, textAlign: TextAlign.center, style: t.titleLarge?.copyWith(color: Fz.azul)),
+        Text(Money.fechaLarga(fecha), textAlign: TextAlign.center, style: t.bodyMedium),
+        Text('${j['sede_nombre'] ?? ''}', textAlign: TextAlign.center, style: t.bodySmall),
+        if (hayCodigo) ...[
+          const SizedBox(height: 6),
+          Text('Código ${i['codigo']}', textAlign: TextAlign.center, style: t.labelMedium),
+        ],
+        const SizedBox(height: 12),
+        if (hayCodigo)
+          PopButton(
+            label: 'Mi código QR',
+            icon: Icons.qr_code_2_rounded,
+            onPressed: () => mostrarCodigoQr(context, i),
           ),
-        ],
         if (i['estado'] == 'pendiente_pago') ...[
-          const SizedBox(height: 12),
-          PopButton(label: 'Ver mis pagos', icon: Icons.receipt_long_rounded, onPressed: () => OwnerShell.irA(context, 3)),
+          const SizedBox(height: 10),
+          PopButton.tonal(label: 'Ir a pagar', icon: Icons.payments_rounded, onPressed: () => OwnerShell.irA(context, 3)),
         ],
+        const SizedBox(height: 4),
+        TextButton.icon(onPressed: onMisCitas, icon: const Icon(Icons.list_alt_rounded), label: const Text('Ver todas mis citas')),
       ]),
     );
   }
-
-  Widget _linea(BuildContext context, IconData ic, String tx) => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Row(children: [
-          Icon(ic, size: 18, color: Fz.variante),
-          const SizedBox(width: 6),
-          Expanded(child: Text(tx, style: Theme.of(context).textTheme.bodyMedium)),
-        ]),
-      );
 }
 
 class _SinCita extends StatelessWidget {
@@ -241,56 +223,59 @@ class _SinCita extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return PopCard(
-      child: Row(children: [
-        const Icon(Icons.event_note_rounded, size: 32),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Aún no tienes citas', style: t.titleMedium),
-            const SizedBox(height: 2),
-            Text('Busca una jornada cerca de ti e inscribe a tus mascotas.', style: t.bodyMedium),
-          ]),
-        ),
+      color: Fz.azul50,
+      child: Column(children: [
+        const Icon(Icons.event_note_rounded, size: 34, color: Fz.azul),
+        const SizedBox(height: 6),
+        Text('Aún no tienes citas', textAlign: TextAlign.center, style: t.titleMedium),
+        const SizedBox(height: 2),
+        Text('Busca una jornada cerca de ti e inscribe a tus mascotas.', textAlign: TextAlign.center, style: t.bodyMedium),
+        const SizedBox(height: 12),
+        PopButton(label: 'Ver jornadas', icon: Icons.event_rounded, expand: false, onPressed: () => OwnerShell.irA(context, 1)),
       ]),
     );
   }
 }
 
-class _Acceso extends StatelessWidget {
-  const _Acceso({required this.icon, required this.color, required this.titulo, required this.sub, required this.onTap});
+class _Acceso {
+  const _Acceso({required this.icon, required this.titulo, required this.sub, required this.onTap});
   final IconData icon;
-  final Color color;
   final String titulo;
   final String sub;
   final VoidCallback onTap;
+}
+
+class _AccesoTile extends StatelessWidget {
+  const _AccesoTile({required this.a, required this.alterna});
+  final _Acceso a;
+  final bool alterna;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return PopCard(
-      color: color,
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      child: Row(children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: Fz.cremaClaro,
-            shape: BoxShape.circle,
-            border: Border.all(color: Fz.tinta, width: 2),
+      color: alterna ? Fz.azul50 : Fz.tarjeta,
+      onTap: a.onTap,
+      padding: const EdgeInsets.all(12),
+      child: Semantics(
+        button: true,
+        label: a.titulo,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: Fz.azul,
+              shape: BoxShape.circle,
+              border: Border.all(color: Fz.tinta, width: Fz.borde),
+            ),
+            child: Icon(a.icon, size: 32, color: Fz.tarjeta),
           ),
-          child: Icon(icon, size: 28, color: Fz.tinta),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(titulo, style: t.titleLarge),
-            Text(sub, style: t.bodyMedium),
-          ]),
-        ),
-        const Icon(Icons.chevron_right_rounded, size: 28),
-      ]),
+          const SizedBox(height: 10),
+          Text(a.titulo, textAlign: TextAlign.center, style: t.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(a.sub, textAlign: TextAlign.center, style: t.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+        ]),
+      ),
     );
   }
 }
@@ -305,38 +290,36 @@ class _TasaCard extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final tasa = this.tasa;
     return PopCard(
-      color: Fz.cremaClaro,
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.currency_exchange_rounded, size: 30),
-        const SizedBox(width: 12),
-        Expanded(
-          child: tasa == null
-              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Tasa euro BCV', style: t.titleMedium),
-                  const SizedBox(height: 2),
-                  Text(
-                    error
-                        ? 'No pudimos actualizar la tasa. El monto en Bs se confirma al pagar; los precios en \$ no cambian.'
-                        : 'Tasa no disponible; el monto en Bs se confirma al pagar.',
-                    style: t.bodyMedium,
-                  ),
-                ])
-              : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Tasa euro BCV · fecha valor ${Money.fecha(tasa.fechaValor)}', style: t.bodySmall),
-                  Text('${Money.tasa(tasa.valor)} por euro', style: t.headlineSmall),
-                  const SizedBox(height: 2),
-                  Text('Precios en \$ · gata \$15 = ${Money.bs(Money.aBs(15, tasa.valor))}', style: t.bodyMedium),
-                  if (tasa.vieja) ...[
-                    const SizedBox(height: 8),
-                    StatusPill(
-                      'Tasa del ${DateFormat('dd/MM').format(tasa.fechaValor)}, puede variar',
-                      icon: Icons.warning_amber_rounded,
-                      color: Fz.rosaSuave,
-                      dashed: true,
-                    ),
-                  ],
-                ]),
-        ),
+      color: Fz.tarjeta,
+      child: Column(children: [
+        const Icon(Icons.currency_exchange_rounded, size: 28, color: Fz.azul),
+        const SizedBox(height: 4),
+        if (tasa == null) ...[
+          Text('Tasa euro BCV', textAlign: TextAlign.center, style: t.titleMedium),
+          const SizedBox(height: 2),
+          Text(
+            error
+                ? 'No pudimos actualizar la tasa. El monto en Bs se confirma al pagar; los precios en \$ no cambian.'
+                : 'Tasa no disponible; el monto en Bs se confirma al pagar.',
+            textAlign: TextAlign.center,
+            style: t.bodyMedium,
+          ),
+        ] else ...[
+          Text('Tasa euro BCV · fecha valor ${Money.fecha(tasa.fechaValor)}', textAlign: TextAlign.center, style: t.bodySmall),
+          Text('${Money.tasa(tasa.valor)} por euro', textAlign: TextAlign.center, style: t.headlineSmall),
+          const SizedBox(height: 2),
+          Text('Precios en \$ · gata \$15 = ${Money.bs(Money.aBs(15, tasa.valor))}',
+              textAlign: TextAlign.center, style: t.bodyMedium),
+          if (tasa.vieja) ...[
+            const SizedBox(height: 8),
+            StatusPill(
+              'Tasa del ${DateFormat('dd/MM').format(tasa.fechaValor)}, puede variar',
+              icon: Icons.warning_amber_rounded,
+              color: Fz.azul50,
+              dashed: true,
+            ),
+          ],
+        ],
       ]),
     );
   }

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/data.dart';
+import '../../core/mapa.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import 'inscribir_screen.dart';
+import 'jornadas_screen.dart';
 
 /// Detalle de una jornada: fecha, sede, mapa, WhatsApp, precios e inscripción.
 class JornadaDetailScreen extends StatefulWidget {
@@ -43,16 +44,12 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
     } catch (_) {}
   }
 
-  Future<void> _abrir(Uri uri, {Uri? fallback}) async {
+  Future<void> _abrirWa(String url) async {
+    var ok = false;
     try {
-      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+      ok = await abrirEnlace(url);
     } catch (_) {}
-    if (fallback != null) {
-      try {
-        if (await launchUrl(fallback, mode: LaunchMode.externalApplication)) return;
-      } catch (_) {}
-    }
-    if (mounted) showInfo(context, 'No encontramos una aplicación para abrir el enlace.');
+    if (!ok && mounted) showInfo(context, 'No encontramos una aplicación para abrir el enlace.');
   }
 
   @override
@@ -61,7 +58,7 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
     final j = widget.jornada;
     final libres = j.cuposLibres ?? j.cuposTotal;
     final agotada = libres <= 0;
-    final fecha = DateFormat("EEE d 'de' MMM yyyy · h:mm a", 'es').format(j.fecha);
+    final fecha = DateFormat("EEEE d 'de' MMMM yyyy · h:mm a", 'es').format(j.fecha);
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle de jornada')),
       body: RefreshIndicator(
@@ -70,31 +67,37 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
-            Row(children: [
-              const Icon(Icons.calendar_month_rounded, size: 20, color: Fz.variante),
-              const SizedBox(width: 6),
-              Expanded(child: Text(fecha[0].toUpperCase() + fecha.substring(1), style: t.titleMedium)),
-            ]),
-            const SizedBox(height: 6),
-            Text(j.titulo, style: t.headlineMedium),
-            const SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              agotada
-                  ? const StatusPill('Agotada', icon: Icons.block_rounded, color: Fz.frambuesaSuave)
-                  : StatusPill('Quedan $libres de ${j.cuposTotal}', icon: Icons.check_circle_rounded),
-              const StatusPill('Perros y gatos', icon: Icons.pets_rounded, color: Fz.rosaSuave),
-              if (j.limpiezaDental) const StatusPill('Limpieza dental', icon: Icons.add_circle_rounded, color: Fz.cremaClaro),
-            ]),
-            if (j.descripcion != null && j.descripcion!.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(j.descripcion!, style: t.bodyLarge),
-            ],
+            FadeSlideIn(
+              child: PopCard(
+                padding: const EdgeInsets.all(10),
+                child: Column(children: [
+                  JornadaPortada(jornada: j, height: 170),
+                  const SizedBox(height: 12),
+                  Text(j.titulo, textAlign: TextAlign.center, style: t.headlineMedium),
+                  const SizedBox(height: 4),
+                  Text(fecha[0].toUpperCase() + fecha.substring(1), textAlign: TextAlign.center, style: t.bodyMedium),
+                  const SizedBox(height: 10),
+                  Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+                    agotada
+                        ? const StatusPill('Agotada', icon: Icons.block_rounded, color: Fz.frambuesaSuave)
+                        : StatusPill('Quedan $libres de ${j.cuposTotal}', icon: Icons.check_circle_rounded, color: Fz.azul100),
+                    const StatusPill('Perros y gatos', icon: Icons.pets_rounded, color: Fz.azul50),
+                    if (j.limpiezaDental) const StatusPill('Limpieza dental', icon: Icons.add_circle_rounded, color: Fz.tarjeta),
+                  ]),
+                  if (j.descripcion != null && j.descripcion!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(j.descripcion!, textAlign: TextAlign.center, style: t.bodyMedium),
+                  ],
+                  const SizedBox(height: 4),
+                ]),
+              ),
+            ),
             const SizedBox(height: 16),
-            _ubicacion(context, j),
+            FadeSlideIn(index: 1, child: _ubicacion(context, j)),
             const SizedBox(height: 16),
-            _whatsapp(context),
-            const SectionTitle('Precios por especie y sexo'),
-            _resumenPrecios(context, j),
+            FadeSlideIn(index: 2, child: _whatsapp(context)),
+            const _Titulo('Precios por especie y sexo'),
+            FadeSlideIn(index: 3, child: _resumenPrecios(context, j)),
           ],
         ),
       ),
@@ -102,14 +105,15 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           decoration: const BoxDecoration(
-            color: Fz.crema,
+            color: Fz.tarjeta,
             border: Border(top: BorderSide(color: Fz.tinta, width: 2)),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             if (agotada)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text('Esta jornada no tiene cupos. Revisa las otras fechas.', style: t.bodyMedium),
+                child: Text('Esta jornada no tiene cupos. Revisa las otras fechas.',
+                    textAlign: TextAlign.center, style: t.bodyMedium),
               ),
             PopButton(
               label: 'Inscribir mis mascotas',
@@ -127,61 +131,51 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
   Widget _ubicacion(BuildContext context, Jornada j) {
     final t = Theme.of(context).textTheme;
     final lat = j.lat, lng = j.lng;
-    final tiene = lat != null && lng != null;
-    final coords = tiene ? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}' : null;
+    final enlace = j.enlaceMapa;
+    final destino = lat != null && lng != null
+        ? 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng'
+        : enlace;
+    Future<void> abrir(String url) async {
+      var ok = false;
+      try {
+        ok = await abrirEnlace(url);
+      } catch (_) {}
+      if (!ok && context.mounted) showInfo(context, 'No encontramos una aplicación para abrir el mapa.');
+    }
+
     return PopCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.location_on_rounded, size: 28),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(j.sede, style: t.titleLarge),
-              if (j.direccion != null) Text(j.direccion!, style: t.bodyMedium),
-              Text(j.ciudad, style: t.bodySmall),
-            ]),
+      color: Fz.azul50,
+      child: Column(children: [
+        const Icon(Icons.location_on_rounded, size: 30, color: Fz.azul),
+        const SizedBox(height: 4),
+        Text(j.sede, textAlign: TextAlign.center, style: t.titleLarge),
+        if (j.direccion != null) Text(j.direccion!, textAlign: TextAlign.center, style: t.bodyMedium),
+        Text(j.ciudad, textAlign: TextAlign.center, style: t.bodySmall),
+        if (lat != null && lng != null) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            button: enlace != null,
+            label: 'Mapa de la sede. Toca para abrirlo.',
+            child: MapaPreview(lat: lat, lng: lng, enlace: enlace, height: 170),
           ),
-        ]),
-        if (tiene) ...[
-          const SizedBox(height: 10),
-          Row(children: [
-            const Icon(Icons.my_location_rounded, size: 18, color: Fz.variante),
-            const SizedBox(width: 6),
-            Expanded(child: Text(coords!, style: t.bodyMedium)),
-            IconButton(
-              tooltip: 'Copiar coordenadas',
-              icon: const Icon(Icons.content_copy_rounded),
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: coords));
-                if (context.mounted) showInfo(context, 'Coordenadas copiadas');
-              },
-            ),
-          ]),
-          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 12),
+        if (enlace == null)
+          Text('Pronto publicaremos la ubicación en el mapa.', textAlign: TextAlign.center, style: t.bodySmall)
+        else
           Row(children: [
             Expanded(
-              child: PopButton.tonal(
-                label: 'Abrir en mapas',
-                icon: Icons.map_rounded,
-                onPressed: () => _abrir(
-                  Uri.parse('geo:$lat,$lng?q=$lat,$lng(${Uri.encodeComponent(j.sede)})'),
-                  fallback: Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
-                ),
-              ),
+              child: PopButton.tonal(label: 'Ver en el mapa', icon: Icons.map_rounded, onPressed: () => abrir(enlace)),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: PopButton(
                 label: 'Cómo llegar',
                 icon: Icons.directions_rounded,
-                onPressed: () => _abrir(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng')),
+                onPressed: () => abrir(destino ?? enlace),
               ),
             ),
           ]),
-        ] else ...[
-          const SizedBox(height: 8),
-          Text('Pronto publicaremos la ubicación exacta en el mapa.', style: t.bodySmall),
-        ],
       ]),
     );
   }
@@ -189,10 +183,10 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
   Widget _whatsapp(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return PopCard(
-      color: Fz.azulPastel,
+      color: Fz.tarjeta,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.forum_rounded, size: 28),
+          const Icon(Icons.forum_rounded, size: 28, color: Fz.azul),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -230,7 +224,7 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
               Container(
                 padding: const EdgeInsets.only(left: 12),
                 decoration: BoxDecoration(
-                  color: Fz.cremaClaro,
+                  color: Fz.azul50,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Fz.tinta, width: 2),
                 ),
@@ -251,8 +245,7 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
                 label: 'Abrir',
                 icon: Icons.chat_rounded,
                 onPressed: () {
-                  final u = Uri.tryParse(url.startsWith('http') ? url : 'https://$url');
-                  if (u != null) _abrir(u);
+                  _abrirWa(url.startsWith('http') ? url : 'https://$url');
                 },
               ),
             ]);
@@ -293,11 +286,11 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
         Widget fila(IconData ic, String n, double? v, {bool desde = false}) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(children: [
-                Icon(ic, size: 20),
+                Icon(ic, size: 20, color: Fz.azul),
                 const SizedBox(width: 8),
                 Expanded(child: Text(n, style: t.titleMedium)),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text('${desde ? 'desde ' : ''}${Money.usd(v)}', style: Fz.display(18, w: FontWeight.w700)),
+                  Text('${desde ? 'desde ' : ''}${Money.usd(v)}', style: t.titleLarge),
                   if (tasa != null && v != null) Text(bs(v), style: t.bodySmall),
                 ]),
               ]),
@@ -306,6 +299,7 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
         final conoG = p.extra('cono', 'gato'), conoP = p.extra('cono', 'perro');
         final dental = minimo('limpieza_dental', 'gato', null);
         return PopCard(
+          color: Fz.azul50,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             fila(Icons.male_rounded, 'Gato', minimo('esterilizacion', 'gato', 'macho')),
             fila(Icons.female_rounded, 'Gata', minimo('esterilizacion', 'gato', 'hembra')),
@@ -343,5 +337,16 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
           const SizedBox(width: 8),
           Expanded(child: Text(tx, style: Theme.of(context).textTheme.bodyMedium)),
         ]),
+      );
+}
+
+class _Titulo extends StatelessWidget {
+  const _Titulo(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+        child: Text(text, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
       );
 }

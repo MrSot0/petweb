@@ -26,21 +26,27 @@ class _LoginScreenState extends State<LoginScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
-            Row(children: [
-              const FzLogo(size: 52),
-              const SizedBox(width: 12),
-              Text('FAUNAZULIA', style: Fz.display(26)),
-            ]),
-            const SizedBox(height: 24),
-            Text(_registro ? 'Crear cuenta' : '¡Hola!', style: t.displaySmall),
-            const SizedBox(height: 4),
-            Text('El mismo cuidado para perros y gatos', style: t.titleLarge?.copyWith(color: Fz.azul)),
-            const SizedBox(height: 6),
-            Text(
-              _registro
-                  ? 'Con tu cuenta inscribes a tus mascotas y sigues tus pagos.'
-                  : 'Esterilización de perros y gatos a precios accesibles en Maracaibo y San Francisco.',
-              style: t.bodyLarge?.copyWith(color: Fz.variante),
+            FadeSlideIn(
+              child: FzHero(
+                leading: const FzLogo(size: 64),
+                title: 'FAUNAZULIA',
+                subtitle: 'El mismo cuidado para perros y gatos',
+              ),
+            ),
+            const SizedBox(height: 20),
+            FadeSlideIn(
+              index: 1,
+              child: Column(children: [
+                Text(_registro ? 'Crear cuenta' : '¡Hola!', textAlign: TextAlign.center, style: t.headlineMedium),
+                const SizedBox(height: 4),
+                Text(
+                  _registro
+                      ? 'Con tu cuenta inscribes a tus mascotas y sigues tus pagos.'
+                      : 'Esterilización de perros y gatos a precios accesibles en Maracaibo y San Francisco.',
+                  textAlign: TextAlign.center,
+                  style: t.bodyMedium?.copyWith(color: Fz.variante),
+                ),
+              ]),
             ),
             const SizedBox(height: 20),
             if (!_enviado) ...[
@@ -48,11 +54,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: SegmentedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                   side: const BorderSide(color: Fz.tinta, width: 2),
-                  selectedBackgroundColor: Fz.rosa,
-                  backgroundColor: Fz.cremaClaro,
+                  selectedBackgroundColor: Fz.azul,
+                  backgroundColor: Fz.tarjeta,
                   foregroundColor: Fz.tinta,
-                  selectedForegroundColor: Fz.tinta,
-                  textStyle: Fz.display(16, w: FontWeight.w700),
+                  selectedForegroundColor: Fz.tarjeta,
+                  iconColor: Fz.azul,
+                  textStyle: Fz.display(15, w: FontWeight.w700),
                 ),
                 segments: const [
                   ButtonSegment(value: false, label: Text('Entrar'), icon: Icon(Icons.login_rounded)),
@@ -204,7 +211,7 @@ class _EntrarFormState extends State<_EntrarForm> {
             validator: (v) => (v ?? '').isEmpty ? 'Escribe tu contraseña.' : null,
           ),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: Alignment.center,
             child: TextButton(onPressed: _olvide, child: const Text('¿Olvidaste tu contraseña?')),
           ),
           const SizedBox(height: 8),
@@ -395,7 +402,7 @@ class _RegistroFormState extends State<_RegistroForm> {
                     if (_terminos) _terminosError = false;
                   }),
                 ),
-                Expanded(child: Text('Acepto los términos y condiciones y la política de privacidad.', style: t.bodyMedium)),
+                Expanded(child: Text('Acepto los términos y condiciones y la política de privacidad.', style: t.bodySmall?.copyWith(color: Fz.tinta))),
               ]),
             ),
           ),
@@ -428,18 +435,19 @@ class _Confirmacion extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return PopCard(
-      color: Fz.azulPastel,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.mark_email_read_rounded, size: 40, color: Fz.tinta),
+      color: Fz.azul50,
+      child: Column(children: [
+        const Icon(Icons.mark_email_read_rounded, size: 40, color: Fz.azul),
         const SizedBox(height: 10),
-        Text('Revisa tu correo', style: t.headlineSmall),
+        Text('Revisa tu correo', textAlign: TextAlign.center, style: t.headlineSmall),
         const SizedBox(height: 6),
-        Text('Te enviamos un enlace a tu correo para confirmar la cuenta.', style: t.bodyLarge),
+        Text('Te enviamos un enlace a tu correo para confirmar la cuenta.',
+            textAlign: TextAlign.center, style: t.bodyMedium),
         const SizedBox(height: 4),
-        Text(correo, style: t.titleMedium),
+        Text(correo, textAlign: TextAlign.center, style: t.titleMedium),
         const SizedBox(height: 8),
         Text('Ábrelo desde este teléfono y luego entra con tu correo y contraseña. Si no lo ves, revisa la carpeta de spam.',
-            style: t.bodyMedium),
+            textAlign: TextAlign.center, style: t.bodySmall),
         const SizedBox(height: 16),
         PopButton.tonal(label: 'Ya confirmé, entrar', icon: Icons.login_rounded, onPressed: onVolver),
       ]),
