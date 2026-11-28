@@ -13,7 +13,7 @@ import 'verificar_screen.dart' show CodigoCopiable, staffFecha, staffNum, staffS
 
 // ---------------- Textos de visitas ----------------
 
-String visitaEstadoTexto(String? e) => switch (e) {
+String staffVisitaEstadoTexto(String? e) => switch (e) {
       'solicitada' => 'Solicitada',
       'confirmada' => 'Confirmada',
       'en_camino' => 'En camino',
@@ -23,7 +23,7 @@ String visitaEstadoTexto(String? e) => switch (e) {
       _ => e ?? '—',
     };
 
-IconData visitaEstadoIcono(String? e) => switch (e) {
+IconData staffVisitaEstadoIcono(String? e) => switch (e) {
       'solicitada' => Icons.mark_email_unread_rounded,
       'confirmada' => Icons.event_available_rounded,
       'en_camino' => Icons.directions_car_rounded,
@@ -32,9 +32,9 @@ IconData visitaEstadoIcono(String? e) => switch (e) {
       _ => Icons.cancel_rounded,
     };
 
-Widget visitaEstadoPill(String? e) => StatusPill(
-      visitaEstadoTexto(e),
-      icon: visitaEstadoIcono(e),
+Widget staffVisitaEstadoPill(String? e) => StatusPill(
+      staffVisitaEstadoTexto(e),
+      icon: staffVisitaEstadoIcono(e),
       color: switch (e) {
         'cancelada' => Fz.frambuesaSuave,
         'finalizada' => Fz.azul200,
@@ -132,7 +132,7 @@ class _AdminVisitasScreenState extends State<AdminVisitasScreen> {
   Future<void> _abrir(Map<String, dynamic> v) async {
     final pets = [for (final id in _petIds(v)) ?_pets[id]];
     final r = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => VisitaDetalleScreen(visita: v, mascotas: pets)),
+      MaterialPageRoute(builder: (_) => AdminVisitaDetalleScreen(visita: v, mascotas: pets)),
     );
     if (r == true && mounted) _load();
   }
@@ -233,7 +233,7 @@ class _AdminVisitasScreenState extends State<AdminVisitasScreen> {
                   child: FadeSlideIn(
                     key: ValueKey(v['id']),
                     index: i,
-                    child: VisitaCard(
+                    child: AdminVisitaCard(
                       visita: v,
                       mascotas: [for (final id in _petIds(v)) ?_pets[id]],
                       alt: i.isOdd,
@@ -248,8 +248,8 @@ class _AdminVisitasScreenState extends State<AdminVisitasScreen> {
 }
 
 /// Tarjeta de una visita a domicilio.
-class VisitaCard extends StatelessWidget {
-  const VisitaCard({super.key, required this.visita, required this.mascotas, this.onTap, this.alt = false});
+class AdminVisitaCard extends StatelessWidget {
+  const AdminVisitaCard({super.key, required this.visita, required this.mascotas, this.onTap, this.alt = false});
   final Map<String, dynamic> visita;
   final List<Pet> mascotas;
   final VoidCallback? onTap;
@@ -288,7 +288,7 @@ class VisitaCard extends StatelessWidget {
         Row(children: [
           if (codigo != null) CodigoCopiable(codigo, compacto: true),
           const Spacer(),
-          visitaEstadoPill(staffStr(v['estado'])),
+          staffVisitaEstadoPill(staffStr(v['estado'])),
         ]),
         const SizedBox(height: 8),
         Row(children: [
@@ -346,16 +346,16 @@ class VisitaCard extends StatelessWidget {
 }
 
 /// Detalle de una visita. El admin confirma fecha y hora, veterinario y precio, o cancela con motivo.
-class VisitaDetalleScreen extends StatefulWidget {
-  const VisitaDetalleScreen({super.key, required this.visita, this.mascotas = const []});
+class AdminVisitaDetalleScreen extends StatefulWidget {
+  const AdminVisitaDetalleScreen({super.key, required this.visita, this.mascotas = const []});
   final Map<String, dynamic> visita;
   final List<Pet> mascotas;
 
   @override
-  State<VisitaDetalleScreen> createState() => _VisitaDetalleScreenState();
+  State<AdminVisitaDetalleScreen> createState() => _AdminVisitaDetalleScreenState();
 }
 
-class _VisitaDetalleScreenState extends State<VisitaDetalleScreen> {
+class _AdminVisitaDetalleScreenState extends State<AdminVisitaDetalleScreen> {
   final _form = GlobalKey<FormState>();
   final _precio = TextEditingController();
   late DateTime _fecha;
@@ -591,7 +591,7 @@ class _VisitaDetalleScreenState extends State<VisitaDetalleScreen> {
                 precio == null ? 'precio por confirmar' : Money.usd(precio),
               ].join(' · '),
               child: Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 8, children: [
-                visitaEstadoPill(_estado),
+                staffVisitaEstadoPill(_estado),
                 if (codigo != null)
                   Container(
                     decoration: BoxDecoration(
