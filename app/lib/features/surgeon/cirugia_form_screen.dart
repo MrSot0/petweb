@@ -90,9 +90,9 @@ class _CirugiaFormScreenState extends State<CirugiaFormScreen> {
     final prop = fichaMapa(widget.ficha['propietario']);
     return Scaffold(
       appBar: AppBar(title: const Text('Registrar cirugía')),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-        children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           FadeSlideIn(
             child: PopCard(
               color: Fz.azul50,
@@ -107,10 +107,8 @@ class _CirugiaFormScreenState extends State<CirugiaFormScreen> {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(nombre, style: t.titleLarge),
-                    Text(
-                      [widget.ficha['codigo'], prop['nombre']].whereType<String>().join(' · '),
-                      style: t.bodySmall,
-                    ),
+                    if (widget.ficha['codigo'] is String) CodigoCopiable(widget.ficha['codigo'] as String),
+                    if (prop['nombre'] is String) Text(prop['nombre'] as String, style: t.bodySmall),
                   ]),
                 ),
               ]),
@@ -207,7 +205,7 @@ class _CirugiaFormScreenState extends State<CirugiaFormScreen> {
               onPressed: _guardar,
             ),
           ),
-        ],
+        ]),
       ),
     );
   }

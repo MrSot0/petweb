@@ -5,8 +5,10 @@ import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../main.dart';
+import 'honorarios_admin_screen.dart';
 import 'jornada_detalle_screen.dart';
 import 'jornada_form_screen.dart';
+import 'stats_screen.dart';
 import 'tasa_screen.dart' show parseBs;
 
 export 'jornada_detalle_screen.dart';
@@ -235,6 +237,34 @@ class _AdminJornadasScreenState extends State<AdminJornadasScreen> {
                 ? 'Toca una jornada para ver participantes y estadísticas.'
                 : '$proximas ${proximas == 1 ? 'publicada y próxima' : 'publicadas y próximas'} · toca una para ver participantes',
             leading: const Icon(Icons.event_available_rounded, color: Fz.tarjeta, size: 34),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const HonorariosAdminScreen())),
+              icon: const Icon(Icons.medical_services_rounded),
+              label: const Text('Honorarios de cirujanos'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        FadeSlideIn(
+          index: 1,
+          child: PopCard(
+            color: Fz.azul100,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EstadisticasScreen())),
+            child: Row(children: [
+              const FzAvatar(icon: Icons.insights_rounded, size: 46, color: Fz.tarjeta),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(children: [
+                  Text('Estadísticas generales', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+                  Text('Todas las jornadas, con selector por jornada',
+                      textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+                ]),
+              ),
+              const SizedBox(width: 12),
+              const Icon(Icons.chevron_right_rounded, color: Fz.azul),
+            ]),
           ),
         ),
         const SizedBox(height: 16),
@@ -249,7 +279,7 @@ class _AdminJornadasScreenState extends State<AdminJornadasScreen> {
           )
         else
           for (final (i, j) in items.indexed) ...[
-            FadeSlideIn(index: i + 1, child: JornadaStaffCard(jornada: j, onTap: () => _abrir(j), alt: i.isOdd)),
+            FadeSlideIn(index: i + 2, child: JornadaStaffCard(jornada: j, onTap: () => _abrir(j), alt: i.isOdd)),
             const SizedBox(height: 14),
           ],
       ]),

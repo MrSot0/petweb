@@ -63,10 +63,10 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
       appBar: AppBar(title: const Text('Detalle de jornada')),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: ListView(
+        child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             FadeSlideIn(
               child: PopCard(
                 padding: const EdgeInsets.all(10),
@@ -98,7 +98,7 @@ class _JornadaDetailScreenState extends State<JornadaDetailScreen> {
             FadeSlideIn(index: 2, child: _whatsapp(context)),
             const _Titulo('Precios por especie y sexo'),
             FadeSlideIn(index: 3, child: _resumenPrecios(context, j)),
-          ],
+          ]),
         ),
       ),
       bottomNavigationBar: SafeArea(

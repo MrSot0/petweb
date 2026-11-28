@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import 'pago_detalle_screen.dart';
+import 'tasa_screen.dart';
 
 /// Antigüedad legible: "hace 40 min", "hace 2 h", "hace 3 d".
 String staffHace(String? iso) {
@@ -40,7 +42,42 @@ String staffRol(String? r) => switch (r) {
       _ => r ?? 'equipo',
     };
 
+/// ¿El pago es de una visita a domicilio (visita_id en vez de jornada)?
+bool staffEsVisita(Map<String, dynamic> pago) => staffStr(pago['visita_id']) != null && pago['jornadas'] == null;
+
+/// Copia un código (FZ-…/VD-…) y avisa.
+Future<void> copiarCodigo(BuildContext context, String codigo) async {
+  await Clipboard.setData(ClipboardData(text: codigo));
+  if (context.mounted) showInfo(context, 'Código copiado');
+}
+
+/// Código FZ-…/VD-… con botón para copiarlo.
+class CodigoCopiable extends StatelessWidget {
+  const CodigoCopiable(this.codigo, {super.key, this.color = Fz.azul700, this.compacto = false});
+  final String codigo;
+  final Color color;
+  final bool compacto;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(99),
+      onTap: () => copiarCodigo(context, codigo),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: compacto ? 2 : 6),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(codigo, style: t.labelMedium?.copyWith(color: color, letterSpacing: .4)),
+          const SizedBox(width: 6),
+          Icon(Icons.copy_rounded, size: 16, color: color, semanticLabel: 'Copiar código'),
+        ]),
+      ),
+    );
+  }
+}
+
 String staffPetsTexto(Map<String, dynamic> pago) {
+  if (staffEsVisita(pago) && ((pago['inscripciones'] as List?) ?? const []).isEmpty) return 'Visita a domicilio';
   final ins = (pago['inscripciones'] as List?) ?? const [];
   final names = ins
       .whereType<Map>()
@@ -69,6 +106,8 @@ class _VerificarScreenState extends State<VerificarScreen> {
   List<Map<String, dynamic>>? _pagos;
   int? _pendientes;
   Object? _error;
+  Tasa? _tasa;
+  bool _tasaCargada = false;
 
   @override
   void initState() {
@@ -76,8 +115,28 @@ class _VerificarScreenState extends State<VerificarScreen> {
     _load();
   }
 
+  Future<void> _cargarTasa() async {
+    try {
+      final t = await Data.tasaVigente();
+      if (mounted) {
+        setState(() {
+          _tasa = t;
+          _tasaCargada = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _tasaCargada = true);
+    }
+  }
+
+  Future<void> _abrirTasa() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TasaScreen()));
+    if (mounted) _cargarTasa();
+  }
+
   Future<void> _load() async {
     setState(() => _error = null);
+    _cargarTasa();
     try {
       final estado = _estado;
       final rows = await Data.pagos(estado: estado);
@@ -124,13 +183,15 @@ class _VerificarScreenState extends State<VerificarScreen> {
               leading: Text(_pendientes?.toString() ?? '–', style: Fz.display(40, color: Fz.tarjeta)),
               title: _pendientes == 1 ? 'pago por verificar' : 'pagos por verificar',
               subtitle: 'Compara con el banco o la caja antes de verificar.',
+              child: _fichaTasa(),
             ),
           ),
         ),
-        SingleChildScrollView(
+        Center(
+          child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
             for (final s in _segs)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -142,10 +203,48 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 ),
               ),
           ]),
+          ),
         ),
         const SizedBox(height: 8),
         Expanded(child: _body()),
       ]),
+    );
+  }
+
+  Widget _fichaTasa() {
+    final t = Theme.of(context).textTheme;
+    final tasa = _tasa;
+    final texto = !_tasaCargada
+        ? 'Tasa euro BCV…'
+        : tasa == null
+            ? 'Sin tasa euro BCV · cargar'
+            : 'Tasa euro BCV ${Money.tasa(tasa.valor)} · ${Money.fecha(tasa.fechaValor)}';
+    return Semantics(
+      button: true,
+      label: '$texto. Abrir tasa',
+      excludeSemantics: true,
+      child: Material(
+        color: Fz.tarjeta,
+        shape: const StadiumBorder(side: BorderSide(color: Fz.tinta, width: Fz.borde)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: _abrirTasa,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(tasa?.vieja == true ? Icons.warning_rounded : Icons.currency_exchange_rounded,
+                    size: 18, color: Fz.azul),
+                const SizedBox(width: 8),
+                Flexible(child: Text(texto, textAlign: TextAlign.center, style: t.titleSmall)),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: Fz.azul),
+              ]),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -235,7 +334,7 @@ class PagoCard extends StatelessWidget {
               Text(nombre ?? staffStr(prof['email']) ?? 'Propietario',
                   style: t.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              meta(Icons.pets_rounded, staffPetsTexto(pago)),
+              meta(staffEsVisita(pago) ? Icons.home_work_rounded : Icons.pets_rounded, staffPetsTexto(pago)),
             ]),
           ),
           const SizedBox(width: 8),
@@ -246,7 +345,9 @@ class PagoCard extends StatelessWidget {
         ]),
         const SizedBox(height: 10),
         Wrap(spacing: 12, runSpacing: 6, children: [
-          if (jor['titulo'] != null)
+          if (staffEsVisita(pago))
+            meta(Icons.home_work_rounded, 'Visita a domicilio')
+          else if (jor['titulo'] != null)
             meta(Icons.event_rounded, '${jor['titulo']}${jorFecha != null ? ' · ${Money.fecha(jorFecha)}' : ''}'),
           meta(pm ? Icons.account_balance_rounded : Icons.payments_rounded,
               '${staffMetodo(staffStr(pago['metodo']))}${pago['banco_emisor'] != null ? ' · ${pago['banco_emisor']}' : ''}'),

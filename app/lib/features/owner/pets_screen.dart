@@ -122,16 +122,19 @@ class _PetsScreenState extends State<PetsScreen> {
               Text(p.descripcion, style: t.bodyMedium),
               Text(edadTexto(p.edadMeses), style: t.bodySmall),
               const SizedBox(height: 6),
-              StatusPill(
-                p.esterilizada ? 'Esterilizada' : 'Sin esterilizar',
-                icon: p.esterilizada ? Icons.check_circle_rounded : Icons.schedule_rounded,
-                color: p.esterilizada ? Fz.azul100 : Fz.tarjeta,
-                dashed: !p.esterilizada,
-              ),
+              if (p.esterilizada)
+                const _EsterilizadaBadge()
+              else
+                const StatusPill('Sin esterilizar', icon: Icons.schedule_rounded, color: Fz.tarjeta, dashed: true),
             ]),
           ),
           const Icon(Icons.edit_rounded, color: Fz.azul),
         ]),
+        if (p.esterilizada) ...[
+          const SizedBox(height: 10),
+          Text('Ya está esterilizada: no necesita inscribirse en una jornada.',
+              textAlign: TextAlign.center, style: t.bodySmall),
+        ],
         if (!p.esterilizada && _precios != null) ...[
           const SizedBox(height: 12),
           PrecioEstimadoBox(precio: precioEsterilizacion(_precios!, p), tasa: _tasa),
@@ -252,4 +255,25 @@ class _PetsScreenState extends State<PetsScreen> {
       ),
     );
   }
+}
+
+/// Marca destacada (azul sólido) para mascotas ya esterilizadas.
+class _EsterilizadaBadge extends StatelessWidget {
+  const _EsterilizadaBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Fz.azul,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Fz.tinta, width: 2),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.verified_rounded, size: 16, color: Fz.tarjeta),
+          const SizedBox(width: 4),
+          Text('Esterilizada',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontSize: 12.5, color: Fz.tarjeta)),
+        ]),
+      );
 }

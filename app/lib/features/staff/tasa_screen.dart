@@ -147,7 +147,10 @@ class _TasaScreenState extends State<TasaScreen> {
     final t = Theme.of(context).textTheme;
     final tasa = _tasa;
     final preview = parseBs(_valor.text);
-    return ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       FadeSlideIn(
         child: tasa == null
             ? const FzHero(
@@ -286,6 +289,6 @@ class _TasaScreenState extends State<TasaScreen> {
             ],
           ]),
         ),
-    ]);
+    ]));
   }
 }

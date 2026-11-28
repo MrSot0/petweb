@@ -23,69 +23,85 @@ class _LoginScreenState extends State<LoginScreen> {
     final t = Theme.of(context).textTheme;
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          children: [
-            FadeSlideIn(
-              child: FzHero(
-                leading: const FzLogo(size: 64),
-                title: 'FAUNAZULIA',
-                subtitle: 'El mismo cuidado para perros y gatos',
-              ),
-            ),
-            const SizedBox(height: 20),
-            FadeSlideIn(
-              index: 1,
-              child: Column(children: [
-                Text(_registro ? 'Crear cuenta' : '¡Hola!', textAlign: TextAlign.center, style: t.headlineMedium),
-                const SizedBox(height: 4),
-                Text(
-                  _registro
-                      ? 'Con tu cuenta inscribes a tus mascotas y sigues tus pagos.'
-                      : 'Esterilización de perros y gatos a precios accesibles en Maracaibo y San Francisco.',
-                  textAlign: TextAlign.center,
-                  style: t.bodyMedium?.copyWith(color: Fz.variante),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              children: [
+                FadeSlideIn(
+                  child: FzHero(
+                    leading: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(88 * .28),
+                        border: Border.all(color: Fz.tarjeta, width: 3),
+                      ),
+                      child: const FzLogo(size: 88),
+                    ),
+                    title: 'FAUNAZULIA',
+                    subtitle: 'El mismo cuidado para perros y gatos',
+                  ),
                 ),
-              ]),
-            ),
-            const SizedBox(height: 20),
-            if (!_enviado) ...[
-              SegmentedButton<bool>(
-                style: SegmentedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  side: const BorderSide(color: Fz.tinta, width: 2),
-                  selectedBackgroundColor: Fz.azul,
-                  backgroundColor: Fz.tarjeta,
-                  foregroundColor: Fz.tinta,
-                  selectedForegroundColor: Fz.tarjeta,
-                  iconColor: Fz.azul,
-                  textStyle: Fz.display(15, w: FontWeight.w700),
+                const SizedBox(height: 20),
+                FadeSlideIn(
+                  index: 1,
+                  child: Column(
+                    children: [
+                      Text(_registro ? 'Crear cuenta' : '¡Hola!', textAlign: TextAlign.center, style: t.headlineMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        _registro
+                            ? 'Con tu cuenta inscribes a tus mascotas y sigues tus pagos.'
+                            : 'Esterilización de perros y gatos a precios accesibles en Maracaibo y San Francisco.',
+                        textAlign: TextAlign.center,
+                        style: t.bodyMedium?.copyWith(color: Fz.variante),
+                      ),
+                    ],
+                  ),
                 ),
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Entrar'), icon: Icon(Icons.login_rounded)),
-                  ButtonSegment(value: true, label: Text('Crear cuenta'), icon: Icon(Icons.person_add_rounded)),
+                const SizedBox(height: 20),
+                if (!_enviado) ...[
+                  SegmentedButton<bool>(
+                    style: SegmentedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      side: const BorderSide(color: Fz.tinta, width: 2),
+                      selectedBackgroundColor: Fz.azul,
+                      backgroundColor: Fz.tarjeta,
+                      foregroundColor: Fz.tinta,
+                      selectedForegroundColor: Fz.tarjeta,
+                      iconColor: Fz.azul,
+                      textStyle: Fz.display(15, w: FontWeight.w700),
+                    ),
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Entrar'), icon: Icon(Icons.login_rounded)),
+                      ButtonSegment(value: true, label: Text('Crear cuenta'), icon: Icon(Icons.person_add_rounded)),
+                    ],
+                    selected: {_registro},
+                    onSelectionChanged: (s) => setState(() => _registro = s.first),
+                  ),
+                  const SizedBox(height: 20),
                 ],
-                selected: {_registro},
-                onSelectionChanged: (s) => setState(() => _registro = s.first),
-              ),
-              const SizedBox(height: 20),
-            ],
-            if (_enviado)
-              _Confirmacion(
-                correo: _correoEnviado,
-                onVolver: () => setState(() {
-                  _enviado = false;
-                  _registro = false;
-                }),
-              )
-            else if (_registro)
-              _RegistroForm(onEnviado: (correo) => setState(() {
-                    _enviado = true;
-                    _correoEnviado = correo;
-                  }))
-            else
-              const _EntrarForm(),
-          ],
+                if (_enviado)
+                  _Confirmacion(
+                    correo: _correoEnviado,
+                    onVolver: () => setState(() {
+                      _enviado = false;
+                      _registro = false;
+                    }),
+                  )
+                else if (_registro)
+                  _RegistroForm(
+                    onEnviado: (correo) => setState(() {
+                      _enviado = true;
+                      _correoEnviado = correo;
+                    }),
+                  )
+                else
+                  const _EntrarForm(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -142,20 +158,29 @@ class _EntrarFormState extends State<_EntrarForm> {
     final correo = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Recuperar contraseña'),
+        title: const Text('Recuperar contraseña', textAlign: TextAlign.center),
         content: Form(
           key: key,
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Te enviaremos un enlace a tu correo para crear una contraseña nueva.'),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: ctrl,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.mail_rounded)),
-              validator: _validarCorreo,
-            ),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Te enviaremos un enlace a tu correo para crear una contraseña nueva.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: ctrl,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(
+                  labelText: 'Correo electrónico',
+                  prefixIcon: Icon(Icons.mail_rounded),
+                ),
+                validator: _validarCorreo,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
@@ -183,40 +208,43 @@ class _EntrarFormState extends State<_EntrarForm> {
     return Form(
       key: _form,
       child: AutofillGroup(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
-            controller: _correo,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(labelText: 'Tu correo', prefixIcon: Icon(Icons.mail_rounded)),
-            validator: _validarCorreo,
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _clave,
-            obscureText: !_ver,
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.password],
-            onFieldSubmitted: (_) => _entrar(),
-            decoration: InputDecoration(
-              labelText: 'Contraseña',
-              prefixIcon: const Icon(Icons.lock_rounded),
-              suffixIcon: IconButton(
-                tooltip: _ver ? 'Ocultar contraseña' : 'Mostrar contraseña',
-                icon: Icon(_ver ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-                onPressed: () => setState(() => _ver = !_ver),
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _correo,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'Tu correo', prefixIcon: Icon(Icons.mail_rounded)),
+              validator: _validarCorreo,
             ),
-            validator: (v) => (v ?? '').isEmpty ? 'Escribe tu contraseña.' : null,
-          ),
-          Align(
-            alignment: Alignment.center,
-            child: TextButton(onPressed: _olvide, child: const Text('¿Olvidaste tu contraseña?')),
-          ),
-          const SizedBox(height: 8),
-          PopButton(label: 'Entrar', icon: Icons.arrow_forward_rounded, loading: _cargando, onPressed: _entrar),
-        ]),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _clave,
+              obscureText: !_ver,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.password],
+              onFieldSubmitted: (_) => _entrar(),
+              decoration: InputDecoration(
+                labelText: 'Contraseña',
+                prefixIcon: const Icon(Icons.lock_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _ver ? 'Ocultar contraseña' : 'Mostrar contraseña',
+                  icon: Icon(_ver ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                  onPressed: () => setState(() => _ver = !_ver),
+                ),
+              ),
+              validator: (v) => (v ?? '').isEmpty ? 'Escribe tu contraseña.' : null,
+            ),
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(onPressed: _olvide, child: const Text('¿Olvidaste tu contraseña?')),
+            ),
+            const SizedBox(height: 8),
+            PopButton(label: 'Entrar', icon: Icons.arrow_forward_rounded, loading: _cargando, onPressed: _entrar),
+          ],
+        ),
       ),
     );
   }
@@ -289,138 +317,161 @@ class _RegistroFormState extends State<_RegistroForm> {
     return Form(
       key: _form,
       child: AutofillGroup(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
-            controller: _nombre,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.name],
-            decoration: const InputDecoration(labelText: 'Nombre y apellido', prefixIcon: Icon(Icons.person_rounded)),
-            validator: (v) {
-              final s = (v ?? '').trim();
-              if (s.isEmpty) return 'Escribe tu nombre y apellido.';
-              if (s.split(RegExp(r'\s+')).length < 2) return 'Escribe también tu apellido.';
-              return null;
-            },
-          ),
-          const SizedBox(height: 14),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(
-              width: 92,
-              child: DropdownButtonFormField<String>(
-                initialValue: _nac,
-                decoration: const InputDecoration(labelText: 'Tipo'),
-                items: const [
-                  DropdownMenuItem(value: 'V', child: Text('V')),
-                  DropdownMenuItem(value: 'E', child: Text('E')),
-                ],
-                onChanged: (v) => setState(() => _nac = v ?? 'V'),
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _nombre,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.name],
+              decoration: const InputDecoration(labelText: 'Nombre y apellido', prefixIcon: Icon(Icons.person_rounded)),
+              validator: (v) {
+                final s = (v ?? '').trim();
+                if (s.isEmpty) return 'Escribe tu nombre y apellido.';
+                if (s.split(RegExp(r'\s+')).length < 2) return 'Escribe también tu apellido.';
+                return null;
+              },
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _cedula,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.next,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
-                decoration: const InputDecoration(labelText: 'Cédula', prefixIcon: Icon(Icons.badge_rounded)),
-                validator: (v) {
-                  final d = (v ?? '').trim();
-                  if (d.isEmpty) return 'Escribe tu número de cédula.';
-                  if (d.length < 6) return 'La cédula tiene de 6 a 9 números.';
-                  return null;
-                },
-              ),
-            ),
-          ]),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _telefono,
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')), LengthLimitingTextInputFormatter(16)],
-            decoration: const InputDecoration(
-              labelText: 'Teléfono',
-              hintText: '0414 555 0123',
-              prefixIcon: Icon(Icons.phone_rounded),
-              helperText: 'Para avisos de tu cita.',
-            ),
-            validator: (_) {
-              final d = _telefonoNormalizado;
-              if (d.isEmpty) return 'Escribe tu teléfono.';
-              if (!RegExp(r'^0\d{10}$').hasMatch(d)) return 'Escríbelo con 11 números, así: 0414 555 0123';
-              return null;
-            },
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _correo,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.mail_rounded)),
-            validator: _validarCorreo,
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _clave,
-            obscureText: !_ver,
-            autofillHints: const [AutofillHints.newPassword],
-            decoration: InputDecoration(
-              labelText: 'Contraseña',
-              helperText: 'Mínimo 8 caracteres.',
-              prefixIcon: const Icon(Icons.lock_rounded),
-              suffixIcon: IconButton(
-                tooltip: _ver ? 'Ocultar contraseña' : 'Mostrar contraseña',
-                icon: Icon(_ver ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-                onPressed: () => setState(() => _ver = !_ver),
-              ),
-            ),
-            validator: (v) {
-              final s = v ?? '';
-              if (s.isEmpty) return 'Crea una contraseña.';
-              if (s.length < 8) return 'Usa al menos 8 caracteres (llevas ${s.length}).';
-              return null;
-            },
-          ),
-          const SizedBox(height: 10),
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => setState(() {
-              _terminos = !_terminos;
-              if (_terminos) _terminosError = false;
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(children: [
-                Checkbox(
-                  value: _terminos,
-                  onChanged: (v) => setState(() {
-                    _terminos = v ?? false;
-                    if (_terminos) _terminosError = false;
-                  }),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 92,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _nac,
+                    decoration: const InputDecoration(labelText: 'Tipo'),
+                    items: const [
+                      DropdownMenuItem(value: 'V', child: Text('V')),
+                      DropdownMenuItem(value: 'E', child: Text('E')),
+                    ],
+                    onChanged: (v) => setState(() => _nac = v ?? 'V'),
+                  ),
                 ),
-                Expanded(child: Text('Acepto los términos y condiciones y la política de privacidad.', style: t.bodySmall?.copyWith(color: Fz.tinta))),
-              ]),
-            ),
-          ),
-          if (_terminosError)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 6),
-              child: Row(children: [
-                const Icon(Icons.error_rounded, size: 18, color: Fz.frambuesa),
-                const SizedBox(width: 6),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Para crear la cuenta debes aceptar los términos.',
-                      style: t.bodySmall?.copyWith(color: Fz.frambuesa, fontWeight: FontWeight.w700)),
+                  child: TextFormField(
+                    controller: _cedula,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
+                    decoration: const InputDecoration(labelText: 'Cédula', prefixIcon: Icon(Icons.badge_rounded)),
+                    validator: (v) {
+                      final d = (v ?? '').trim();
+                      if (d.isEmpty) return 'Escribe tu número de cédula.';
+                      if (d.length < 6) return 'La cédula tiene de 6 a 9 números.';
+                      return null;
+                    },
+                  ),
                 ),
-              ]),
+              ],
             ),
-          const SizedBox(height: 10),
-          PopButton(label: 'Crear cuenta', icon: Icons.person_add_rounded, loading: _cargando, onPressed: _crear),
-        ]),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _telefono,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
+                LengthLimitingTextInputFormatter(16),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Teléfono',
+                hintText: '0414 555 0123',
+                prefixIcon: Icon(Icons.phone_rounded),
+                helperText: 'Para avisos de tu cita.',
+              ),
+              validator: (_) {
+                final d = _telefonoNormalizado;
+                if (d.isEmpty) return 'Escribe tu teléfono.';
+                if (!RegExp(r'^0\d{10}$').hasMatch(d)) return 'Escríbelo con 11 números, así: 0414 555 0123';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _correo,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.mail_rounded)),
+              validator: _validarCorreo,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _clave,
+              obscureText: !_ver,
+              autofillHints: const [AutofillHints.newPassword],
+              decoration: InputDecoration(
+                labelText: 'Contraseña',
+                helperText: 'Mínimo 8 caracteres.',
+                prefixIcon: const Icon(Icons.lock_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _ver ? 'Ocultar contraseña' : 'Mostrar contraseña',
+                  icon: Icon(_ver ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                  onPressed: () => setState(() => _ver = !_ver),
+                ),
+              ),
+              validator: (v) {
+                final s = v ?? '';
+                if (s.isEmpty) return 'Crea una contraseña.';
+                if (s.length < 8) return 'Usa al menos 8 caracteres (llevas ${s.length}).';
+                return null;
+              },
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() {
+                _terminos = !_terminos;
+                if (_terminos) _terminosError = false;
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Checkbox(
+                      value: _terminos,
+                      onChanged: (v) => setState(() {
+                        _terminos = v ?? false;
+                        if (_terminos) _terminosError = false;
+                      }),
+                    ),
+                    Flexible(
+                      child: Text(
+                        'Acepto los términos y condiciones y la política de privacidad.',
+                        style: t.bodySmall?.copyWith(color: Fz.tinta),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_terminosError)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_rounded, size: 18, color: Fz.frambuesa),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Para crear la cuenta debes aceptar los términos.',
+                        textAlign: TextAlign.center,
+                        style: t.bodySmall?.copyWith(color: Fz.frambuesa, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 10),
+            PopButton(label: 'Crear cuenta', icon: Icons.person_add_rounded, loading: _cargando, onPressed: _crear),
+          ],
+        ),
       ),
     );
   }
@@ -436,21 +487,29 @@ class _Confirmacion extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     return PopCard(
       color: Fz.azul50,
-      child: Column(children: [
-        const Icon(Icons.mark_email_read_rounded, size: 40, color: Fz.azul),
-        const SizedBox(height: 10),
-        Text('Revisa tu correo', textAlign: TextAlign.center, style: t.headlineSmall),
-        const SizedBox(height: 6),
-        Text('Te enviamos un enlace a tu correo para confirmar la cuenta.',
-            textAlign: TextAlign.center, style: t.bodyMedium),
-        const SizedBox(height: 4),
-        Text(correo, textAlign: TextAlign.center, style: t.titleMedium),
-        const SizedBox(height: 8),
-        Text('Ábrelo desde este teléfono y luego entra con tu correo y contraseña. Si no lo ves, revisa la carpeta de spam.',
-            textAlign: TextAlign.center, style: t.bodySmall),
-        const SizedBox(height: 16),
-        PopButton.tonal(label: 'Ya confirmé, entrar', icon: Icons.login_rounded, onPressed: onVolver),
-      ]),
+      child: Column(
+        children: [
+          const Icon(Icons.mark_email_read_rounded, size: 40, color: Fz.azul),
+          const SizedBox(height: 10),
+          Text('Revisa tu correo', textAlign: TextAlign.center, style: t.headlineSmall),
+          const SizedBox(height: 6),
+          Text(
+            'Te enviamos un enlace a tu correo para confirmar la cuenta.',
+            textAlign: TextAlign.center,
+            style: t.bodyMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(correo, textAlign: TextAlign.center, style: t.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Ábrelo desde este teléfono y luego entra con tu correo y contraseña. Si no lo ves, revisa la carpeta de spam.',
+            textAlign: TextAlign.center,
+            style: t.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          PopButton.tonal(label: 'Ya confirmé, entrar', icon: Icons.login_rounded, onPressed: onVolver),
+        ],
+      ),
     );
   }
 }

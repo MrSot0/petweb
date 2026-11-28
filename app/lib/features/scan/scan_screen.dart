@@ -182,9 +182,10 @@ class _ScanScreenState extends State<ScanScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _cargarStats,
-          child: ListView(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            children: [
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const FadeSlideIn(
                 child: FzHero(
                   title: 'Escanear código',
@@ -219,7 +220,7 @@ class _ScanScreenState extends State<ScanScreen> {
               FadeSlideIn(index: 2, child: _escribir(context)),
               const SizedBox(height: 8),
               FadeSlideIn(index: 3, child: _resumen(context)),
-            ],
+            ]),
           ),
         ),
       ),

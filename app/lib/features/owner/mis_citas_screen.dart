@@ -5,6 +5,7 @@ import '../../core/money.dart';
 import '../../core/qr.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../citas/visita_comun.dart';
 
 /// Estado de inscripción → etiqueta con icono, texto y forma.
 StatusPill pillEstadoInscripcion(String? e) {
@@ -52,7 +53,8 @@ Future<void> mostrarCodigoQr(BuildContext context, Map<String, dynamic> i) {
           if (j['titulo'] != null) Text('${j['titulo']}', textAlign: TextAlign.center, style: t.bodySmall),
           const SizedBox(height: 16),
           CodigoQr(codigo: '${i['codigo']}', size: 240),
-          const SizedBox(height: 10),
+          CodigoCopiable('${i['codigo']}', prefijo: 'Copiar'),
+          const SizedBox(height: 6),
           Text('Sube el brillo de la pantalla para que lo lean más rápido.',
               textAlign: TextAlign.center, style: t.bodySmall),
           const SizedBox(height: 16),
@@ -64,14 +66,25 @@ Future<void> mostrarCodigoQr(BuildContext context, Map<String, dynamic> i) {
 }
 
 /// Inscripciones del propietario con su estado y el QR para el día de la jornada.
-class MisCitasScreen extends StatefulWidget {
+class MisCitasScreen extends StatelessWidget {
   const MisCitasScreen({super.key});
 
   @override
-  State<MisCitasScreen> createState() => _MisCitasScreenState();
+  Widget build(BuildContext context) =>
+      Scaffold(appBar: AppBar(title: const Text('Mis citas')), body: const MisCitasBody());
 }
 
-class _MisCitasScreenState extends State<MisCitasScreen> {
+/// Lista de inscripciones a jornadas (con QR grande y código copiable).
+/// [header] reemplaza la cabecera propia (lo usa la pestaña Citas para poner sus segmentos).
+class MisCitasBody extends StatefulWidget {
+  const MisCitasBody({super.key, this.header});
+  final Widget? header;
+
+  @override
+  State<MisCitasBody> createState() => MisCitasBodyState();
+}
+
+class MisCitasBodyState extends State<MisCitasBody> {
   List<Map<String, dynamic>>? _ins;
   Map<String, String?> _fotos = {};
   Object? _error;
@@ -80,10 +93,10 @@ class _MisCitasScreenState extends State<MisCitasScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    recargar();
   }
 
-  Future<void> _load() async {
+  Future<void> recargar() async {
     setState(() => _error = null);
     try {
       final petsF = Data.misMascotas().then<List<Pet>?>((v) => v).catchError((_) => null);
@@ -124,7 +137,7 @@ class _MisCitasScreenState extends State<MisCitasScreen> {
       await Data.cancelarInscripcion(id);
       if (!mounted) return;
       showInfo(context, 'Cita cancelada');
-      await _load();
+      await recargar();
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -133,29 +146,28 @@ class _MisCitasScreenState extends State<MisCitasScreen> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: const Text('Mis citas')), body: _body(context));
-
-  Widget _body(BuildContext context) {
+  Widget build(BuildContext context) {
+    final header = widget.header;
     if (_error != null && _ins == null) {
-      return EmptyState(
-        icon: Icons.wifi_off_rounded,
-        title: 'No pudimos cargar tus citas',
-        message: friendlyError(_error!),
-        action: PopButton(label: 'Reintentar', icon: Icons.refresh_rounded, onPressed: _load, expand: false),
-      );
+      return _scroll([
+        ?header,
+        EmptyState(
+          icon: Icons.wifi_off_rounded,
+          title: 'No pudimos cargar tus citas',
+          message: friendlyError(_error!),
+          action: PopButton(label: 'Reintentar', icon: Icons.refresh_rounded, onPressed: recargar, expand: false),
+        ),
+      ]);
     }
-    if (_ins == null) return const Center(child: CircularProgressIndicator());
+    if (_ins == null) {
+      return _scroll([?header, const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]);
+    }
     final activas = _ins!.where((i) => i['estado'] != 'cancelada' && i['estado'] != 'atendida').toList();
     final pasadas = _ins!.where((i) => i['estado'] == 'cancelada' || i['estado'] == 'atendida').toList();
     final conQr = activas.where(muestraQr).length;
     var n = 0;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
+    return _scroll([
+      header ??
           FadeSlideIn(
             child: FzHero(
               title: 'Tus citas',
@@ -167,36 +179,51 @@ class _MisCitasScreenState extends State<MisCitasScreen> {
               leading: const Icon(Icons.qr_code_2_rounded, size: 36, color: Fz.tarjeta),
             ),
           ),
-          const SizedBox(height: 16),
-          if (_ins!.isEmpty)
-            const EmptyState(
-              icon: Icons.event_note_rounded,
-              title: 'Sin citas por ahora',
-              message: 'Inscribe a tu mascota en una jornada y aquí verás su código QR.',
-            ),
-          for (final i in activas) ...[
-            FadeSlideIn(index: ++n, child: _CitaCard(
+      const SizedBox(height: 16),
+      if (_ins!.isEmpty)
+        const EmptyState(
+          icon: Icons.event_note_rounded,
+          title: 'Sin citas por ahora',
+          message: 'Inscribe a tu mascota en una jornada y aquí verás su código QR.',
+        ),
+      if (header != null && conQr > 0)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text('Muestra tu código QR al llegar a la jornada',
+              textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        ),
+      for (final i in activas) ...[
+        FadeSlideIn(
+            index: ++n,
+            child: _CitaCard(
               i: i,
               foto: _fotos[i['pet_id']],
               alterna: n.isEven,
               cancelando: _cancelando.contains(i['id']),
               onCancelar: _cancelable(i) ? () => _cancelar(i) : null,
             )),
-            const SizedBox(height: 14),
-          ],
-          if (pasadas.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
-              child: Text('Anteriores', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
-            ),
-          for (final i in pasadas) ...[
-            FadeSlideIn(index: ++n, child: _CitaCard(i: i, foto: _fotos[i['pet_id']], alterna: n.isEven, compacta: true)),
-            const SizedBox(height: 12),
-          ],
-        ],
-      ),
-    );
+        const SizedBox(height: 14),
+      ],
+      if (pasadas.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
+          child: Text('Anteriores', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+        ),
+      for (final i in pasadas) ...[
+        FadeSlideIn(index: ++n, child: _CitaCard(i: i, foto: _fotos[i['pet_id']], alterna: n.isEven, compacta: true)),
+        const SizedBox(height: 12),
+      ],
+    ]);
   }
+
+  Widget _scroll(List<Widget> children) => RefreshIndicator(
+        onRefresh: recargar,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: children,
+        ),
+      );
 }
 
 class _CitaCard extends StatelessWidget {
@@ -245,15 +272,17 @@ class _CitaCard extends StatelessWidget {
             onTap: () => mostrarCodigoQr(context, i),
             child: CodigoQr(codigo: '${i['codigo']}', size: 200),
           ),
+          CodigoCopiable('${i['codigo']}', prefijo: 'Copiar'),
           if (i['estado'] == 'pago_en_revision') ...[
             const SizedBox(height: 6),
             Text('Tu pago está en revisión; el cupo se confirma al verificarlo.',
                 textAlign: TextAlign.center, style: t.bodySmall),
           ],
-        ] else if (!compacta && i['codigo'] != null) ...[
+        ] else if (i['codigo'] != null) ...[
           const SizedBox(height: 8),
-          Text('Código ${i['codigo']} · el QR aparece cuando registres tu pago.',
-              textAlign: TextAlign.center, style: t.bodySmall),
+          CodigoCopiable('${i['codigo']}'),
+          if (!compacta)
+            Text('El QR aparece cuando registres tu pago.', textAlign: TextAlign.center, style: t.bodySmall),
         ],
         if (onCancelar != null) ...[
           const SizedBox(height: 12),

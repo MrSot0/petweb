@@ -49,6 +49,47 @@ StatusPill fichaEstadoPill(Map<String, dynamic> f) {
   };
 }
 
+/// Copia un código (FZ-…/VD-…) al portapapeles y avisa "Código copiado".
+Future<void> copiarCodigo(BuildContext context, String codigo) async {
+  if (codigo.isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: codigo));
+  if (context.mounted) showInfo(context, 'Código copiado');
+}
+
+/// Código con icono de copiar (toca para copiar).
+class CodigoCopiable extends StatelessWidget {
+  const CodigoCopiable(this.codigo, {super.key, this.color = Fz.azul, this.style});
+  final String codigo;
+  final Color color;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    if (codigo.isEmpty) return const SizedBox.shrink();
+    final st = style ?? Theme.of(context).textTheme.labelMedium?.copyWith(color: color);
+    return Semantics(
+      button: true,
+      label: 'Copiar código $codigo',
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => copiarCodigo(context, codigo),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 36),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(child: Text(codigo, style: st, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 6),
+              Icon(Icons.copy_rounded, size: 16, color: color),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 String fichaServicio(String? s) => switch (s) {
       'esterilizacion' => 'Esterilización',
       null => 'Servicio',
@@ -200,9 +241,10 @@ class _FichaScreenState extends State<FichaScreen> {
         ),
         body: RefreshIndicator(
           onRefresh: _recargar,
-          child: ListView(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-            children: [
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               item(FzHero(
                 title: nombre,
                 subtitle: fichaDescripcion(pet),
@@ -213,7 +255,11 @@ class _FichaScreenState extends State<FichaScreen> {
                   size: 108,
                 ),
                 child: Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-                  _HeroChip(icon: Icons.qr_code_2_rounded, text: _codigo),
+                  _HeroChip(
+                    icon: Icons.qr_code_2_rounded,
+                    text: _codigo,
+                    onTap: () => copiarCodigo(context, _codigo),
+                  ),
                   fichaEstadoPill(_f),
                   if (pet['braquiocefalico'] == true)
                     const StatusPill('Braquiocefálico', icon: Icons.warning_amber_rounded, color: Fz.azul50),
@@ -337,7 +383,7 @@ class _FichaScreenState extends State<FichaScreen> {
                   ]),
                 )),
               for (final a in acciones) item(a),
-            ],
+            ]),
           ),
         ),
       ),
@@ -354,23 +400,36 @@ class _FichaScreenState extends State<FichaScreen> {
 }
 
 class _HeroChip extends StatelessWidget {
-  const _HeroChip({required this.icon, required this.text});
+  const _HeroChip({required this.icon, required this.text, this.onTap});
   final IconData icon;
   final String text;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
+  Widget build(BuildContext context) => Semantics(
+        button: onTap != null,
+        label: onTap != null ? 'Copiar código $text' : text,
+        excludeSemantics: true,
+        child: Material(
           color: Fz.azul900,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Fz.tinta, width: 2),
+          shape: const StadiumBorder(side: BorderSide(color: Fz.tinta, width: 2)),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 16, color: Fz.tarjeta),
+                const SizedBox(width: 4),
+                Text(text, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontSize: 12.5, color: Fz.tarjeta)),
+                if (onTap != null) ...[
+                  const SizedBox(width: 6),
+                  const Icon(Icons.copy_rounded, size: 15, color: Fz.tarjeta),
+                ],
+              ]),
+            ),
+          ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: Fz.tarjeta),
-          const SizedBox(width: 4),
-          Text(text, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontSize: 12.5, color: Fz.tarjeta)),
-        ]),
       );
 }
 

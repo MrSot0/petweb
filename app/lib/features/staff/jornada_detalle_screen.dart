@@ -11,6 +11,7 @@ import 'admin_jornadas_screen.dart'
     show JornadaPortada, estadoJornadaPill, estadoInscripcionTexto, estadoInscripcionIcono, mostrarFijarPrecio;
 import 'jornada_form_screen.dart';
 import 'stats_screen.dart';
+import 'verificar_screen.dart' show CodigoCopiable;
 
 /// Número de WhatsApp en formato internacional (Venezuela) a partir de "0414-1234567".
 String? waNumero(String? tel) {
@@ -230,7 +231,10 @@ class _ParticipantesTabState extends State<_ParticipantesTab> with AutomaticKeep
     final activos = items.where((i) => !_retirada(i)).length;
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         // ---- Cabecera de la jornada ----
         FadeSlideIn(
           child: PopCard(
@@ -282,19 +286,21 @@ class _ParticipantesTabState extends State<_ParticipantesTab> with AutomaticKeep
           ),
         ),
         const SizedBox(height: 10),
-        SizedBox(
-          height: 44,
-          child: ListView(scrollDirection: Axis.horizontal, children: [
-            for (final f in _filtros)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text('${f.$2} · ${_cuenta(f.$1)}'),
-                  selected: _filtro == f.$1,
-                  onSelected: (_) => setState(() => _filtro = f.$1),
+        Center(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              for (final f in _filtros)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ChoiceChip(
+                    label: Text('${f.$2} · ${_cuenta(f.$1)}'),
+                    selected: _filtro == f.$1,
+                    onSelected: (_) => setState(() => _filtro = f.$1),
+                  ),
                 ),
-              ),
-          ]),
+            ]),
+          ),
         ),
         const SizedBox(height: 8),
         if (visibles.isEmpty)
@@ -318,7 +324,7 @@ class _ParticipantesTabState extends State<_ParticipantesTab> with AutomaticKeep
             ),
             const SizedBox(height: 12),
           ],
-      ]),
+      ])),
     );
   }
 }
@@ -392,7 +398,7 @@ class _ParticipanteCard extends StatelessWidget {
                   ].join(' · '),
                   style: t.bodySmall,
                 ),
-                if (i['codigo'] != null) Text('Cód. ${i['codigo']}', style: t.labelMedium?.copyWith(color: Fz.azul700)),
+                if (_str(i['codigo']).isNotEmpty) CodigoCopiable(_str(i['codigo']), compacto: true),
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [

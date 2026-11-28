@@ -27,13 +27,27 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
 
   late Future<String?> _url;
   bool _busy = false;
+  Map<String, dynamic>? _visita; // solo pagos de visita a domicilio
 
   Map<String, dynamic> get p => widget.pago;
+  bool get _esVisita => staffEsVisita(p);
 
   @override
   void initState() {
     super.initState();
     _url = Data.urlComprobante(staffStr(p['comprobante_path']));
+    if (_esVisita) _cargarVisita();
+  }
+
+  Future<void> _cargarVisita() async {
+    try {
+      final id = staffStr(p['visita_id']);
+      final todas = await Data.visitas();
+      final v = todas.where((x) => x['id']?.toString() == id).firstOrNull;
+      if (mounted && v != null) setState(() => _visita = v);
+    } catch (_) {
+      // Sin datos de la visita se muestra igual el pago.
+    }
   }
 
   Future<void> _resolver(String accion, {String? motivo}) async {
@@ -67,7 +81,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         title: const Text('¿Verificar este pago?'),
         content: Text(
             'Confirma que recibiste ${Money.usd(staffNum(p['monto_usd']))} con la referencia ${p['referencia'] ?? '—'}. '
-            'Las inscripciones quedarán confirmadas.'),
+            '${_esVisita ? 'La visita a domicilio quedará pagada.' : 'Las inscripciones quedarán confirmadas.'}'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
           TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Verificar')),
@@ -112,7 +126,11 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
     final jor = (p['jornadas'] as Map?) ?? const {};
     final ins = ((p['inscripciones'] as List?) ?? const []).whereType<Map>().toList();
     final reportado = staffNum(p['monto_usd']);
-    final esperado = ins.fold<double>(0, (s, i) => s + (staffNum(i['precio_total_usd']) ?? 0));
+    final visita = _visita;
+    final esperadoVisita = staffNum(visita?['precio_usd']);
+    final esperado = _esVisita
+        ? (esperadoVisita ?? reportado ?? 0)
+        : ins.fold<double>(0, (s, i) => s + (staffNum(i['precio_total_usd']) ?? 0));
     final tasa = staffNum(p['tasa_eur_bcv']);
     final bs = staffNum(p['monto_bs']) ?? Money.aBs(reportado, tasa);
     final tasaFecha = staffFecha(p['tasa_fecha']);
@@ -207,13 +225,19 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
             Center(child: Text('Montos', style: t.titleLarge)),
             const SizedBox(height: 8),
             _fila(t, 'Reportado', Money.usd(reportado), bold: true),
-            _fila(t, 'Esperado', Money.usd(esperado), sub: '${ins.length} ${ins.length == 1 ? 'inscripción' : 'inscripciones'}'),
+            if (_esVisita)
+              _fila(t, 'Esperado', esperadoVisita == null ? (visita == null ? 'Cargando…' : 'Por confirmar') : Money.usd(esperado),
+                  sub: 'Visita a domicilio')
+            else
+              _fila(t, 'Esperado', Money.usd(esperado), sub: '${ins.length} ${ins.length == 1 ? 'inscripción' : 'inscripciones'}'),
             _fila(t, 'En Bs', Money.bs(bs),
                 sub: tasa == null
                     ? 'Sin tasa registrada'
                     : 'Tasa euro BCV ${Money.tasa(tasa)}${tasaFecha != null ? ' del ${Money.fecha(tasaFecha)}' : ''} (congelada)'),
             const SizedBox(height: 8),
-            coincide
+            if (_esVisita && esperadoVisita == null)
+              const SizedBox.shrink()
+            else coincide
                 ? const StatusPill('El monto coincide', icon: Icons.check_circle_rounded, color: Fz.azul200)
                 : StatusPill(
                     'Diferencia de ${Money.usd(((reportado ?? 0) - esperado).abs())}',
@@ -234,8 +258,14 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
             if (banco != null) _fila(t, 'Banco', banco),
             if (telEmisor != null) _copiable(t, 'Tel. emisor', telEmisor),
             if (fechaPago != null) _fila(t, 'Fecha', Money.fecha(fechaPago)),
-            if (jorTitulo != null)
+            if (_esVisita)
+              _fila(t, 'Servicio', 'Visita a domicilio',
+                  sub: staffStr((visita?['servicios_domicilio'] as Map?)?['nombre']))
+            else if (jorTitulo != null)
               _fila(t, 'Jornada', jorTitulo, sub: jorFecha != null ? Money.fechaLarga(jorFecha) : null),
+            if (_esVisita && staffStr(visita?['codigo']) != null) _copiable(t, 'Código', staffStr(visita!['codigo'])!),
+            if (_esVisita && staffFecha(visita?['fecha_hora']) != null)
+              _fila(t, 'Cita', Money.fechaLarga(staffFecha(visita!['fecha_hora'])!)),
           ]),
         ),
         const SizedBox(height: 16),
@@ -254,7 +284,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
         const SizedBox(height: 16),
 
         // ---- Mascotas ----
-        PopCard(
+        if (ins.isNotEmpty) PopCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: Text('Mascotas', style: t.titleLarge)),
             const SizedBox(height: 4),
@@ -267,13 +297,8 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(staffStr((i['pets'] as Map?)?['nombre']) ?? 'Mascota', style: t.titleMedium),
-                      Text(
-                        [
-                          if (i['codigo'] != null) 'Cód. ${i['codigo']}',
-                          i['incluye_kit'] == true ? 'Con kit' : 'Sin kit',
-                        ].join(' · '),
-                        style: t.bodySmall,
-                      ),
+                      if (staffStr(i['codigo']) != null) CodigoCopiable(staffStr(i['codigo'])!, compacto: true),
+                      Text(i['incluye_kit'] == true ? 'Con kit' : 'Sin kit', style: t.bodySmall),
                     ]),
                   ),
                   StatusPill(
@@ -367,7 +392,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
           icon: const Icon(Icons.copy_rounded),
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: v));
-            if (mounted) showInfo(context, '$k copiado');
+            if (mounted) showInfo(context, k == 'Código' ? 'Código copiado' : '$k copiado');
           },
         ),
       ]);

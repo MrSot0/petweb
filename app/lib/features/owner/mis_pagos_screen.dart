@@ -4,8 +4,10 @@ import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../citas/visita_comun.dart';
 import 'registrar_pago_screen.dart';
 
+/// Pagos del propietario: lo que falta pagar (jornadas y visitas) y el historial con su estado.
 class MisPagosScreen extends StatefulWidget {
   const MisPagosScreen({super.key});
 
@@ -16,6 +18,7 @@ class MisPagosScreen extends StatefulWidget {
 class _MisPagosScreenState extends State<MisPagosScreen> {
   List<Map<String, dynamic>>? _ins;
   List<Map<String, dynamic>>? _pagos;
+  List<Map<String, dynamic>> _visitas = [];
   Tasa? _tasa;
   Object? _error;
 
@@ -28,7 +31,9 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
   Future<void> _load() async {
     setState(() => _error = null);
     try {
+      final visF = Data.misVisitas().catchError((_) => <Map<String, dynamic>>[]);
       final r = await Future.wait([Data.misInscripciones(), Data.misPagos()]);
+      final vis = await visF;
       Tasa? tasa;
       try {
         tasa = await Data.tasaVigente();
@@ -37,6 +42,7 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
       setState(() {
         _ins = r[0];
         _pagos = r[1];
+        _visitas = vis;
         _tasa = tasa;
       });
     } catch (e) {
@@ -49,9 +55,14 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
     _load();
   }
 
+  Future<void> _pagarVisita(Map<String, dynamic> v) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => RegistrarPagoScreen(visita: v)));
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: const Text('Pagos')), body: _body(context));
+      Scaffold(appBar: AppBar(title: const Text('Mis pagos')), body: _body(context));
 
   Widget _body(BuildContext context) {
     if (_error != null && _pagos == null) {
@@ -70,9 +81,14 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
     for (final i in pendientes) {
       grupos.putIfAbsent(i['jornada_id'] as String, () => []).add(i);
     }
-    final vacio = grupos.isEmpty && porConfirmar.isEmpty && _pagos!.isEmpty;
+    final visitasPorPagar = _visitas.where(puedePagarVisita).toList();
+    final codigos = {for (final i in _ins!) i['id'] as String: i['codigo'] as String?};
+    final visitaPorId = {for (final v in _visitas) v['id'] as String: v};
+    final vacio = grupos.isEmpty && porConfirmar.isEmpty && visitasPorPagar.isEmpty && _pagos!.isEmpty;
 
-    final totalPend = pendientes.fold<double>(0, (s, i) => s + ((i['precio_total_usd'] as num?)?.toDouble() ?? 0));
+    final totalPend = pendientes.fold<double>(0, (s, i) => s + ((i['precio_total_usd'] as num?)?.toDouble() ?? 0)) +
+        visitasPorPagar.fold<double>(0, (s, v) => s + (precioVisita(v) ?? 0));
+    final hayPorPagar = grupos.isNotEmpty || visitasPorPagar.isNotEmpty;
     final verificados = _pagos!.where((p) => p['estado'] == 'verificado').length;
     var n = 0;
     Widget titulo(String x) => Padding(
@@ -87,8 +103,8 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
         children: [
           FadeSlideIn(
             child: FzHero(
-              title: grupos.isEmpty ? 'Tus pagos' : 'Por pagar ${Money.usd(totalPend)}',
-              subtitle: grupos.isEmpty
+              title: !hayPorPagar ? 'Tus pagos' : 'Por pagar ${Money.usd(totalPend)}',
+              subtitle: !hayPorPagar
                   ? (_pagos!.isEmpty ? 'Aquí verás el estado de tus pagos' : '$verificados de ${_pagos!.length} verificados')
                   : _tasa == null
                       ? 'El monto en Bs se confirma al pagar'
@@ -102,10 +118,17 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
               child: EmptyState(
                 icon: Icons.receipt_long_rounded,
                 title: 'Sin pagos por ahora',
-                message: 'Cuando inscribas a tu mascota en una jornada, aquí podrás pagar y ver el estado de tus pagos.',
+                message: 'Cuando inscribas a tu mascota en una jornada o pidas una visita, aquí podrás pagar y ver el estado de tus pagos.',
               ),
             ),
-          if (grupos.isNotEmpty || porConfirmar.isNotEmpty) titulo('Por pagar'),
+          if (hayPorPagar || porConfirmar.isNotEmpty) titulo('Por pagar'),
+          for (final v in visitasPorPagar) ...[
+            FadeSlideIn(
+              index: ++n,
+              child: _VisitaPorPagarCard(v: v, tasa: _tasa, alterna: n.isEven, onPagar: () => _pagarVisita(v)),
+            ),
+            const SizedBox(height: 12),
+          ],
           for (final g in grupos.values) ...[
             FadeSlideIn(
               index: ++n,
@@ -140,9 +163,19 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
               child: _PagoCard(
                 p: p,
                 alterna: n.isEven,
-                onRepagar: () => _pagar([
-                  for (final i in (p['inscripciones'] as List? ?? const [])) (i as Map)['id'] as String,
-                ]),
+                codigos: [
+                  for (final i in (p['inscripciones'] as List? ?? const []))
+                    if (codigos[(i as Map)['id']] != null) codigos[i['id']]!,
+                  if (p['visita_id'] != null && visitaPorId[p['visita_id']]?['codigo'] != null)
+                    visitaPorId[p['visita_id']]!['codigo'] as String,
+                ],
+                visita: p['visita_id'] == null ? null : visitaPorId[p['visita_id']],
+                // Las visitas por pagar (también tras un rechazo) ya salen arriba en "Por pagar".
+                onRepagar: p['visita_id'] != null
+                    ? null
+                    : () => _pagar([
+                          for (final i in (p['inscripciones'] as List? ?? const [])) (i as Map)['id'] as String,
+                        ]),
               ),
             ),
             const SizedBox(height: 12),
@@ -174,7 +207,8 @@ class _PorPagarCard extends StatelessWidget {
         const SizedBox(height: 8),
         for (final i in items)
           Row(children: [
-            Expanded(child: Text('${(i['pets'] as Map?)?['nombre'] ?? 'Mascota'} · ${i['codigo'] ?? ''}', style: t.bodyMedium)),
+            Expanded(child: Text('${(i['pets'] as Map?)?['nombre'] ?? 'Mascota'}', style: t.bodyMedium)),
+            if (i['codigo'] != null) CodigoCopiable('${i['codigo']}', prefijo: null),
             Text(Money.usd(i['precio_total_usd'] as num?), style: t.titleSmall),
           ]),
         const Divider(height: 18),
@@ -194,11 +228,51 @@ class _PorPagarCard extends StatelessWidget {
   }
 }
 
+class _VisitaPorPagarCard extends StatelessWidget {
+  const _VisitaPorPagarCard({required this.v, required this.tasa, required this.onPagar, this.alterna = false});
+  final Map<String, dynamic> v;
+  final Tasa? tasa;
+  final VoidCallback onPagar;
+  final bool alterna;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final total = precioVisita(v) ?? 0;
+    final rechazado = (v['pago'] as Map?)?['estado'] == 'rechazado';
+    return PopCard(
+      color: alterna ? Fz.azul50 : Fz.tarjeta,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Icon(Icons.home_rounded, size: 28, color: Fz.azul),
+        Text(nombreServicioVisita(v), textAlign: TextAlign.center, style: t.titleLarge),
+        Text('Visita a domicilio · ${fechaVisitaTexto(v)}', textAlign: TextAlign.center, style: t.bodySmall),
+        if (v['codigo'] != null) Center(child: CodigoCopiable('${v['codigo']}')),
+        if (rechazado)
+          const Center(child: StatusPill('Pago rechazado', icon: Icons.error_outline_rounded, color: Fz.frambuesaSuave)),
+        const Divider(height: 18),
+        Text('Total', textAlign: TextAlign.center, style: t.bodySmall),
+        Text(Money.usd(total), textAlign: TextAlign.center, style: t.headlineMedium?.copyWith(color: Fz.azul700)),
+        Text(
+          tasa == null
+              ? 'Tasa no disponible; el monto en Bs se confirma al pagar.'
+              : '${Money.bs(Money.aBs(total, tasa!.valor))} · ${tasa!.vieja ? 'tasa del ${Money.fecha(tasa!.fechaValor).substring(0, 5)}, puede variar' : 'tasa del ${Money.fecha(tasa!.fechaValor)}'}',
+          textAlign: TextAlign.center,
+          style: t.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        PopButton(label: rechazado ? 'Volver a pagar' : 'Pagar', icon: Icons.payments_rounded, onPressed: onPagar),
+      ]),
+    );
+  }
+}
+
 class _PagoCard extends StatelessWidget {
-  const _PagoCard({required this.p, required this.onRepagar, this.alterna = false});
+  const _PagoCard({required this.p, required this.onRepagar, this.alterna = false, this.codigos = const [], this.visita});
   final bool alterna;
   final Map<String, dynamic> p;
-  final VoidCallback onRepagar;
+  final VoidCallback? onRepagar;
+  final List<String> codigos;
+  final Map<String, dynamic>? visita;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +297,15 @@ class _PagoCard extends StatelessWidget {
       shadow: !dashed,
       color: alterna ? Fz.azul50 : Fz.tarjeta,
       child: Column(children: [
-        Text(mascotas.isEmpty ? metodo : '$mascotas · $metodo', textAlign: TextAlign.center, style: t.titleMedium),
+        Text(
+          visita != null
+              ? '${nombreServicioVisita(visita!)} · $metodo'
+              : p['visita_id'] != null
+                  ? 'Visita a domicilio · $metodo'
+                  : (mascotas.isEmpty ? metodo : '$mascotas · $metodo'),
+          textAlign: TextAlign.center,
+          style: t.titleMedium,
+        ),
         Text(
           textAlign: TextAlign.center,
           [
@@ -233,6 +315,8 @@ class _PagoCard extends StatelessWidget {
           ].join(' · '),
           style: t.bodySmall,
         ),
+        if (codigos.isNotEmpty)
+          Wrap(alignment: WrapAlignment.center, children: [for (final c in codigos) CodigoCopiable(c, prefijo: null)]),
         const SizedBox(height: 8),
         StatusPill(label, icon: icon, color: color, dashed: dashed),
         const SizedBox(height: 8),
@@ -271,8 +355,10 @@ class _PagoCard extends StatelessWidget {
             ),
             child: Text('Motivo: ${p['motivo_rechazo'] ?? 'sin indicar'}', style: t.bodyMedium),
           ),
-          const SizedBox(height: 10),
-          PopButton(label: 'Volver a pagar', icon: Icons.refresh_rounded, onPressed: onRepagar),
+          if (onRepagar != null) ...[
+            const SizedBox(height: 10),
+            PopButton(label: 'Volver a pagar', icon: Icons.refresh_rounded, onPressed: onRepagar),
+          ],
         ],
         if (estado == 'anulado') ...[
           const SizedBox(height: 6),

@@ -64,9 +64,10 @@ class _SurgeonJornadasScreenState extends State<SurgeonJornadasScreen> {
       var i = 1;
       body = RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-          children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             FadeSlideIn(
               child: FzHero(
                 title: 'Jornadas de hoy',
@@ -74,6 +75,12 @@ class _SurgeonJornadasScreenState extends State<SurgeonJornadasScreen> {
                     ? 'No tienes jornadas hoy'
                     : '${hoy.length} ${hoy.length == 1 ? 'jornada' : 'jornadas'} · ${Money.fecha(ahora)}',
                 leading: const Icon(Icons.medical_services_rounded, size: 40, color: Fz.tarjeta),
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const EstadisticasScreen())),
+                  icon: const Icon(Icons.bar_chart_rounded),
+                  label: const Text('Estadísticas'),
+                ),
               ),
             ),
             if (items.isEmpty)
@@ -96,7 +103,7 @@ class _SurgeonJornadasScreenState extends State<SurgeonJornadasScreen> {
                 padding: const EdgeInsets.only(bottom: 14),
                 child: FadeSlideIn(index: i++, child: _JornadaCard(j: j, hoy: false, onBack: _load)),
               ),
-          ],
+          ]),
         ),
       );
     }
@@ -142,6 +149,13 @@ class _JornadaCard extends StatelessWidget {
               const SizedBox(height: 6),
               const StatusPill('Inscripciones cerradas', icon: Icons.lock_rounded, color: Fz.azul100),
             ],
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => EstadisticasScreen(jornadaId: j.id))),
+              icon: const Icon(Icons.bar_chart_rounded, size: 20),
+              label: const Text('Estadísticas'),
+            ),
           ]),
         ),
       ]),
@@ -223,9 +237,10 @@ class _SurgeonJornadaDetalleState extends State<SurgeonJornadaDetalle> {
       var i = 1;
       body = RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-          children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             FadeSlideIn(
               child: FzHero(
                 title: j.titulo,
@@ -250,7 +265,7 @@ class _SurgeonJornadaDetalleState extends State<SurgeonJornadaDetalle> {
             FadeSlideIn(
               index: 1,
               child: PopButton.tonal(
-                label: 'Ver estadísticas',
+                label: 'Estadísticas de la jornada',
                 icon: Icons.bar_chart_rounded,
                 onPressed: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => EstadisticasScreen(jornadaId: j.id))),
@@ -284,7 +299,7 @@ class _SurgeonJornadaDetalleState extends State<SurgeonJornadaDetalle> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: FadeSlideIn(index: i++, child: _Participante(f: f, onTap: () => _abrir(f))),
               ),
-          ],
+          ]),
         ),
       );
     }
@@ -321,7 +336,7 @@ class _Participante extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(nombre, style: t.titleMedium),
               Text(fichaDescripcion(pet, edad: false), style: t.bodySmall),
-              Text(f['codigo'] as String? ?? '', style: t.labelSmall?.copyWith(color: Fz.azul)),
+              CodigoCopiable(f['codigo'] as String? ?? ''),
             ]),
           ),
           const SizedBox(width: 8),

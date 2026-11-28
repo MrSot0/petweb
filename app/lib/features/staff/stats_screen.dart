@@ -7,6 +7,7 @@ import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../main.dart';
 
 double _n(dynamic v) => v is num ? v.toDouble() : (double.tryParse(v?.toString() ?? '') ?? 0);
 Map<String, dynamic> _m(dynamic v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
@@ -99,13 +100,17 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> with AutomaticK
     final t = Theme.of(context).textTheme;
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
-        if (_global) ...[_selector(), const SizedBox(height: 14)],
-        if (d == null)
-          const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator()))
-        else
-          ..._contenido(d, t),
-      ]),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (_global) ...[_selector(), const SizedBox(height: 14)],
+          if (d == null)
+            const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator()))
+          else
+            ..._contenido(d, t),
+        ]),
+      ),
     );
   }
 
@@ -139,6 +144,10 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> with AutomaticK
     final porJornada = (d['por_jornada'] is List ? d['por_jornada'] as List : const [])
         .map(_m)
         .toList();
+    final mode = AppMode.of(context);
+    final equipoFinanzas = mode.isAdmin || mode.isContador;
+    final visitas = _jornadaActual == null && equipoFinanzas && d['visitas'] is Map ? _m(d['visitas']) : null;
+    final totalVisitas = visitas?.values.fold<double>(0, (s, v) => s + _n(v)) ?? 0;
     var i = 0;
     Widget anim(Widget w) => FadeSlideIn(index: i++, child: w);
 
@@ -154,7 +163,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> with AutomaticK
         ]),
       )),
       const SizedBox(height: 16),
-      if (total == 0 && porJornada.isEmpty && ingresos == null)
+      if (total == 0 && porJornada.isEmpty && ingresos == null && totalVisitas == 0)
         const EmptyState(
           icon: Icons.bar_chart_rounded,
           title: 'Aún no hay datos',
@@ -193,6 +202,19 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> with AutomaticK
         if (ingresos != null) ...[
           const SizedBox(height: 14),
           anim(_ingresos(t, ingresos)),
+        ],
+        if (visitas != null && totalVisitas > 0) ...[
+          const SizedBox(height: 14),
+          anim(_Tarjeta(
+            titulo: 'Visitas a domicilio por estado',
+            child: _Barras(grupos: [
+              ('Solicit.', [(_n(visitas['solicitada']), Fz.azul200)]),
+              ('Confirm.', [(_n(visitas['confirmada']), Fz.azul400)]),
+              ('En curso', [(_n(visitas['en_camino']) + _n(visitas['en_atencion']), Fz.azul)]),
+              ('Finaliz.', [(_n(visitas['finalizada']), Fz.azul900)]),
+              ('Cancel.', [(_n(visitas['cancelada']), Fz.azul100)]),
+            ], ancho: 26),
+          )),
         ],
         if (_jornadaActual == null && porJornada.isNotEmpty) ...[
           const SizedBox(height: 14),
@@ -252,6 +274,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> with AutomaticK
     final verBs = _n(ing['verificado_bs']);
     final esperado = ing['esperado_usd'] == null ? null : _n(ing['esperado_usd']);
     final ajustes = ing['ajustes_usd'] == null ? null : _n(ing['ajustes_usd']);
+    final honorarios = ing['honorarios_usd'] == null ? null : _n(ing['honorarios_usd']);
     final met = _m(ing['por_metodo']);
     final pm = _n(met['pago_movil']);
     final ef = _n(met['efectivo_divisa']);
@@ -288,6 +311,12 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> with AutomaticK
             if (esperado != null) tile('Esperado', Money.usd(esperado), color: Fz.azul50),
             if (esperado != null && ajustes != null) const SizedBox(width: 10),
             if (ajustes != null) tile('Ajustes', Money.usd(ajustes), color: Fz.azul50),
+          ]),
+        ],
+        if (honorarios != null) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            tile('Honorarios de cirujanos', Money.usd(honorarios), sub: 'Cirugías registradas', color: Fz.azul50),
           ]),
         ],
         const SizedBox(height: 16),

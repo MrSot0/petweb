@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show UserAttributes;
 
 import '../../core/data.dart';
+import '../../core/mapa.dart';
+import '../../core/notificaciones.dart';
 import '../../core/theme.dart';
 import '../../core/webp.dart';
 import '../../core/widgets.dart';
 import '../../main.dart';
 import '../owner/precios_screen.dart';
+import '../staff/honorarios_admin_screen.dart';
+import '../staff/servicios_domicilio_screen.dart';
+import '../staff/tasa_screen.dart';
 import 'datos_cobro_screen.dart';
 import 'fijar_precio.dart';
+import 'notificaciones_screen.dart';
 import 'usuarios_screen.dart';
 
 final _telRe = RegExp(r'^0(412|414|416|422|424|426)\d{7}$');
@@ -18,6 +25,7 @@ String rolTexto(String? r) => switch (r) {
       'cirujano' => 'Cirujano',
       'contador' => 'Contador',
       'admin' => 'Administración',
+      'soporte' => 'Soporte',
       _ => 'Propietario',
     };
 
@@ -25,10 +33,11 @@ IconData rolIcono(String? r) => switch (r) {
       'cirujano' => Icons.medical_services_rounded,
       'contador' => Icons.calculate_rounded,
       'admin' => Icons.admin_panel_settings_rounded,
+      'soporte' => Icons.support_agent_rounded,
       _ => Icons.pets_rounded,
     };
 
-/// Ajustes generales para todas las cuentas (propietario, cirujano, contador y administración).
+/// Ajustes generales para todas las cuentas (propietario, cirujano, contador, administración y soporte).
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -37,8 +46,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Preferencia local (solo en esta sesión de la app por ahora).
-  static bool _notificaciones = true;
+  // Preferencia persistida en el teléfono (Notificaciones.activas / setActivas).
+  bool _notificaciones = true;
 
   Map<String, dynamic>? _perfil;
   Object? _error;
@@ -48,6 +57,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _load();
+    Notificaciones.activas().then((v) {
+      if (mounted) setState(() => _notificaciones = v);
+    });
+  }
+
+  Future<void> _setNotificaciones(bool v) async {
+    setState(() => _notificaciones = v);
+    try {
+      await Notificaciones.setActivas(v); // al activar, pide permiso (Android 13+)
+      if (mounted) {
+        showInfo(context, v ? 'Notificaciones activadas' : 'Notificaciones desactivadas. Igual las verás en la bandeja.');
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  Future<void> _copiarSoporte() async {
+    await Clipboard.setData(const ClipboardData(text: Data.whatsappSoporte));
+    if (mounted) showInfo(context, 'Número copiado');
+  }
+
+  Future<void> _abrirSoporte() async {
+    try {
+      final ok = await abrirEnlace(Data.whatsappSoporteUrl);
+      if (!ok && mounted) showInfo(context, 'No pudimos abrir WhatsApp. Escribe al 0414-625-0848.');
+    } catch (_) {
+      if (mounted) showInfo(context, 'No pudimos abrir WhatsApp. Escribe al 0414-625-0848.');
+    }
   }
 
   Future<void> _load() async {
@@ -274,7 +312,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(appBar: AppBar(title: const Text('Ajustes')), body: _body(context));
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ajustes'),
+        centerTitle: true,
+        actions: const [CampanaNotificaciones(), SizedBox(width: 8)],
+      ),
+      body: _body(context),
+    );
   }
 
   Widget _body(BuildContext context) {
@@ -389,7 +434,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   mode.staff
                       ? 'En modo propietario ves tus mascotas, te inscribes en jornadas y pagas como cualquier persona.'
                       : 'En modo equipo vuelves a tus herramientas de ${rolTexto(mode.rol).toLowerCase()}: '
-                          '${mode.isCirujano ? 'jornadas, escaneo y estadísticas' : 'pagos, jornadas, escaneo y tasa'}.',
+                          '${mode.isCirujano ? 'jornadas, visitas y honorarios' : mode.isSoporte ? 'usuarios y soporte' : 'pagos, jornadas, citas y escaneo'}.',
                   textAlign: TextAlign.center,
                   style: t.bodyMedium?.copyWith(color: Fz.variante),
                 ),
@@ -401,6 +446,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ]),
             )),
+          ],
+
+          // ---------- Gestión (admin y contador) ----------
+          if (mode.isAdmin || mode.isContador) ...[
+            const _Titulo('Gestión'),
+            anim(_Grupo(children: [
+              _Item(
+                icon: Icons.currency_exchange_rounded,
+                title: 'Tasa del día',
+                subtitle: 'Euro BCV para el equivalente en bolívares',
+                onTap: () => _ir(const TasaScreen()),
+              ),
+              _Item(
+                icon: Icons.medical_services_rounded,
+                title: 'Honorarios de cirujanos',
+                subtitle: 'Pendientes, pagados y tarifas',
+                onTap: () => _ir(const HonorariosAdminScreen()),
+              ),
+              if (mode.isAdmin)
+                _Item(
+                  icon: Icons.home_work_rounded,
+                  title: 'Servicios a domicilio',
+                  subtitle: 'Servicios, duración y precios de las visitas',
+                  onTap: () => _ir(const ServiciosDomicilioScreen()),
+                ),
+            ])),
           ],
 
           // ---------- Administración ----------
@@ -432,14 +503,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _Titulo('Preferencias'),
           anim(_Grupo(children: [
             SwitchListTile(
-              secondary: const Icon(Icons.notifications_rounded, color: Fz.azul),
+              secondary: Icon(
+                  _notificaciones ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+                  color: Fz.azul),
               value: _notificaciones,
-              onChanged: (v) {
-                setState(() => _notificaciones = v);
-                showInfo(context, 'Próximamente: los avisos de citas y pagos llegarán a tu teléfono.');
-              },
-              title: const Text('Notificaciones'),
-              subtitle: const Text('Próximamente. Por ahora te avisamos dentro de la app.'),
+              onChanged: _setNotificaciones,
+              title: const Text('Notificaciones en el teléfono', textAlign: TextAlign.center),
+              subtitle: Text(
+                _notificaciones
+                    ? 'Activadas: pagos, citas, jornadas y mascotas.'
+                    : 'Desactivadas. Igual quedan en la bandeja.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+            ValueListenableBuilder<int>(
+              valueListenable: Notificaciones.noLeidas,
+              builder: (_, n, _) => _Item(
+                icon: Icons.inbox_rounded,
+                title: 'Bandeja de notificaciones',
+                subtitle: n == 0 ? 'Estás al día' : (n == 1 ? '1 sin leer' : '$n sin leer'),
+                onTap: () => _ir(const NotificacionesScreen()),
+              ),
             ),
           ])),
 
@@ -470,14 +554,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Ver lista de precios',
               onTap: () => _ir(const PreciosScreen()),
             ),
-            const _Item(icon: Icons.chat_rounded, title: 'WhatsApp de soporte', subtitle: 'Por definir'),
-            const _Item(icon: Icons.info_outline_rounded, title: 'Versión', subtitle: 'Prototipo 0.2'),
+            const _Item(icon: Icons.info_outline_rounded, title: 'Versión', subtitle: 'Prototipo 0.3'),
           ])),
+          const SizedBox(height: 14),
+          anim(PopCard(
+            color: Fz.azul50,
+            child: Column(children: [
+              const Icon(Icons.support_agent_rounded, size: 34, color: Fz.azul),
+              const SizedBox(height: 6),
+              Text('WhatsApp de soporte', textAlign: TextAlign.center, style: t.titleLarge),
+              const SizedBox(height: 4),
+              Text('¿Dudas con tu cuenta, un pago o una cita? Escríbenos.',
+                  textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: Fz.variante)),
+              const SizedBox(height: 8),
+              SelectableText('0414-625-0848', textAlign: TextAlign.center, style: Fz.display(22, color: Fz.azul900)),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: PopButton.tonal(label: 'Copiar', icon: Icons.copy_rounded, onPressed: _copiarSoporte),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: PopButton(label: 'Abrir WhatsApp', icon: Icons.chat_rounded, onPressed: _abrirSoporte),
+                ),
+              ]),
+            ]),
+          )),
 
           const SizedBox(height: 22),
           anim(PopButton.danger(label: 'Cerrar sesión', icon: Icons.logout_rounded, onPressed: _cerrarSesion)),
           const SizedBox(height: 16),
-          Text('FAUNAZULIA · Prototipo 0.2', textAlign: TextAlign.center, style: t.bodySmall),
+          Text('FAUNAZULIA · Prototipo 0.3', textAlign: TextAlign.center, style: t.bodySmall),
         ],
       ),
     );
@@ -521,11 +629,14 @@ class _Item extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        minTileHeight: 56,
+        minTileHeight: 60,
         leading: Icon(icon, color: Fz.azul),
-        title: Text(title),
-        subtitle: subtitle == null ? null : Text(subtitle!),
-        trailing: onTap == null ? null : const Icon(Icons.chevron_right_rounded, color: Fz.azul),
+        title: Text(title, textAlign: TextAlign.center),
+        subtitle: subtitle == null ? null : Text(subtitle!, textAlign: TextAlign.center),
+        // Hueco simétrico al icono para que el texto quede centrado de verdad.
+        trailing: onTap == null
+            ? const SizedBox(width: 24)
+            : const Icon(Icons.chevron_right_rounded, color: Fz.azul),
         onTap: onTap,
       );
 }
@@ -543,9 +654,9 @@ class _Faq extends StatelessWidget {
           leading: Icon(icon, color: Fz.azul),
           iconColor: Fz.azul,
           collapsedIconColor: Fz.azul,
-          title: Text(q, style: Theme.of(context).textTheme.titleMedium),
+          title: Text(q, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          children: [Text(a, style: Theme.of(context).textTheme.bodyMedium)],
+          children: [Text(a, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium)],
         ),
       );
 }

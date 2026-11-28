@@ -5,6 +5,7 @@ import '../../core/data.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../citas/visita_comun.dart';
 import 'jornadas_screen.dart';
 import 'owner_shell.dart';
 import 'pets_screen.dart';
@@ -28,8 +29,13 @@ class _Sel {
 }
 
 class _Carga {
-  _Carga(this.pets, this.precios, this.tasa);
+  _Carga(this.pets, this.precios, this.tasa, this.total);
+
+  /// Solo mascotas SIN esterilizar (las únicas que se pueden inscribir).
   final List<Pet> pets;
+
+  /// Cantidad total de mascotas registradas (incluye las esterilizadas).
+  final int total;
   final Precios precios;
   final Tasa? tasa;
 }
@@ -48,7 +54,8 @@ class _InscribirScreenState extends State<InscribirScreen> {
     try {
       tasa = await Data.tasaVigente();
     } catch (_) {}
-    return _Carga(await petsF, await preciosF, tasa);
+    final todas = await petsF;
+    return _Carga(todas.where((p) => !p.esterilizada).toList(), await preciosF, tasa, todas.length);
   }
 
   Future<void> _refresh() async {
@@ -68,7 +75,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
   }
 
   bool _puedeEsterilizar(Pet p) => !p.esterilizada;
-  bool _habilitada(Pet p) => _puedeEsterilizar(p) || widget.jornada.limpiezaDental;
+  bool _habilitada(Pet p) => _puedeEsterilizar(p);
 
   int get _nItems => _sel.values.fold(0, (a, s) => a + (s.esterilizacion ? 1 : 0) + (s.dental ? 1 : 0));
 
@@ -172,7 +179,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
         title: const Text('¡Inscripción lista!'),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Guarda tus códigos. Los vas a mostrar el día de la jornada; el código QR queda en Inicio › Mis citas.', style: t.bodyMedium),
+            Text('Guarda tus códigos. Los vas a mostrar el día de la jornada; el código QR queda en la pestaña Citas.', style: t.bodyMedium),
             const SizedBox(height: 12),
             for (final r in rows)
               Padding(
@@ -182,7 +189,10 @@ class _InscribirScreenState extends State<InscribirScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${r['codigo'] ?? ''}', style: Fz.display(18, w: FontWeight.w700)),
+                      if (r['codigo'] != null)
+                        CodigoCopiable('${r['codigo']}', prefijo: null, grande: true)
+                      else
+                        Text('Código pendiente', style: t.titleSmall),
                       Text(
                         '${nombres[r['pet_id']] ?? 'Mascota'} · '
                         '${r['servicio'] == 'limpieza_dental' ? 'Limpieza dental' : 'Esterilización'} · '
@@ -220,7 +230,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
       nav.popUntil((r) => r.isFirst);
       nav.push(MaterialPageRoute(builder: (_) => RegistrarPagoScreen(inscripcionIds: pagables)));
     } else {
-      OwnerShell.irA(context, 3);
+      OwnerShell.irA(context, 2);
       nav.popUntil((r) => r.isFirst);
     }
   }
@@ -244,7 +254,7 @@ class _InscribirScreenState extends State<InscribirScreen> {
             );
           }
           final c = snap.data!;
-          if (c.pets.isEmpty) {
+          if (c.total == 0) {
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
@@ -258,7 +268,30 @@ class _InscribirScreenState extends State<InscribirScreen> {
                     icon: Icons.add_rounded,
                     expand: false,
                     onPressed: () {
-                      OwnerShell.irA(context, 2);
+                      OwnerShell.irA(context, 3);
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                    },
+                  ),
+                ),
+              ]),
+            );
+          }
+          if (c.pets.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+                const SizedBox(height: 40),
+                EmptyState(
+                  icon: Icons.verified_rounded,
+                  title: 'Todas tus mascotas ya están esterilizadas',
+                  message: 'En las jornadas solo se inscriben mascotas sin esterilizar. '
+                      'Si registras una nueva, podrás inscribirla aquí.',
+                  action: PopButton(
+                    label: 'Ir a Mis mascotas',
+                    icon: Icons.pets_rounded,
+                    expand: false,
+                    onPressed: () {
+                      OwnerShell.irA(context, 3);
                       Navigator.of(context).popUntil((r) => r.isFirst);
                     },
                   ),
@@ -290,8 +323,19 @@ class _InscribirScreenState extends State<InscribirScreen> {
               Text(j.titulo, textAlign: TextAlign.center, style: t.titleLarge),
               Text('${Money.fechaLarga(j.fecha)} · ${j.sede}', textAlign: TextAlign.center, style: t.bodySmall),
               Padding(
-                padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+                padding: const EdgeInsets.fromLTRB(4, 20, 4, 4),
                 child: Text('¿A quién inscribes?', textAlign: TextAlign.center, style: t.headlineSmall),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  c.total > c.pets.length
+                      ? 'Solo se muestran tus mascotas sin esterilizar '
+                          '(${c.total - c.pets.length} ya ${c.total - c.pets.length == 1 ? 'está esterilizada' : 'están esterilizadas'}).'
+                      : 'Solo se inscriben mascotas sin esterilizar.',
+                  textAlign: TextAlign.center,
+                  style: t.bodySmall,
+                ),
               ),
               for (var k = 0; k < c.pets.length; k++) ...[
                 FadeSlideIn(index: k + 1, child: _petCard(context, c, c.pets[k])),
@@ -405,15 +449,6 @@ class _InscribirScreenState extends State<InscribirScreen> {
               ),
             ),
           ),
-          if (p.esterilizada)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, top: 4),
-              child: StatusPill(
-                j.limpiezaDental ? 'Ya esterilizada · solo limpieza dental' : 'Ya esterilizada',
-                icon: Icons.verified_rounded,
-                color: Fz.azul100,
-              ),
-            ),
           if (s.alguna) ...[
             const SizedBox(height: 6),
             if (_puedeEsterilizar(p))

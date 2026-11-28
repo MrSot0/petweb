@@ -144,9 +144,13 @@ DatosPagoPegados extraerDatosPago(String texto) {
   return DatosPagoPegados(referencia: ref, telefono: tel, monto: monto, banco: banco);
 }
 
+/// Registrar el pago de inscripciones a una jornada o, con [visita], de una visita a domicilio.
 class RegistrarPagoScreen extends StatefulWidget {
-  const RegistrarPagoScreen({super.key, required this.inscripcionIds});
+  const RegistrarPagoScreen({super.key, this.inscripcionIds = const [], this.visita});
   final List<String> inscripcionIds;
+
+  /// Fila de `Data.misVisitas()` (id, codigo, precio_usd, servicios_domicilio{nombre}).
+  final Map<String, dynamic>? visita;
 
   @override
   State<RegistrarPagoScreen> createState() => _RegistrarPagoScreenState();
@@ -185,10 +189,12 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
     super.dispose();
   }
 
+  bool get _modoVisita => widget.visita != null;
+
   Future<void> _load() async {
     setState(() => _error = null);
     try {
-      final todas = await Data.misInscripciones();
+      final todas = _modoVisita ? <Map<String, dynamic>>[] : await Data.misInscripciones();
       final ids = widget.inscripcionIds.toSet();
       List<Map<String, dynamic>> cobro = [];
       try {
@@ -209,8 +215,9 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
     }
   }
 
-  double get _totalUsd =>
-      (_ins ?? []).fold<double>(0, (s, i) => s + ((i['precio_total_usd'] as num?)?.toDouble() ?? 0));
+  double get _totalUsd => _modoVisita
+      ? ((widget.visita!['precio_usd'] as num?)?.toDouble() ?? 0)
+      : (_ins ?? []).fold<double>(0, (s, i) => s + ((i['precio_total_usd'] as num?)?.toDouble() ?? 0));
 
   Future<void> _foto(bool camara) async {
     try {
@@ -339,26 +346,35 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
 
   Future<void> _enviar() async {
     final pm = _metodo == 'pago_movil';
-    if (pm) {
-      if (!_form.currentState!.validate()) return;
-      if (_webp == null) {
-        showInfo(context, 'Adjunta el comprobante del Pago Móvil.');
-        return;
-      }
+    if (pm && !_form.currentState!.validate()) return;
+    if (_webp == null) {
+      showInfo(context, pm ? 'Adjunta el comprobante del Pago Móvil.' : 'Adjunta la foto del recibo o de los billetes.');
+      return;
     }
     setState(() => _enviando = true);
     try {
-      String? path;
-      if (_webp != null) path = await Data.subirComprobante(Uint8List.fromList(_webp!.bytes));
-      await Data.registrarPago(
-        inscripciones: widget.inscripcionIds,
-        metodo: _metodo,
-        referencia: pm ? _ref.text.trim() : null,
-        telefono: pm ? _tel.text.trim() : null,
-        banco: pm ? _banco : null,
-        fecha: pm ? _fecha : DateTime.now(),
-        comprobantePath: path,
-      );
+      final path = await Data.subirComprobante(Uint8List.fromList(_webp!.bytes));
+      if (_modoVisita) {
+        await Data.registrarPagoVisita(
+          visitaId: widget.visita!['id'] as String,
+          metodo: _metodo,
+          referencia: pm ? _ref.text.trim() : null,
+          telefono: pm ? _tel.text.trim() : null,
+          banco: pm ? _banco : null,
+          fecha: pm ? _fecha : DateTime.now(),
+          comprobantePath: path,
+        );
+      } else {
+        await Data.registrarPago(
+          inscripciones: widget.inscripcionIds,
+          metodo: _metodo,
+          referencia: pm ? _ref.text.trim() : null,
+          telefono: pm ? _tel.text.trim() : null,
+          banco: pm ? _banco : null,
+          fecha: pm ? _fecha : DateTime.now(),
+          comprobantePath: path,
+        );
+      }
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const _PagoEnviado()));
     } catch (e) {
@@ -383,7 +399,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
       );
     }
     if (_ins == null) return const Center(child: CircularProgressIndicator());
-    if (_ins!.isEmpty) {
+    if (!_modoVisita && _ins!.isEmpty) {
       return EmptyState(
         icon: Icons.receipt_long_rounded,
         title: 'No hay nada por pagar',
@@ -395,9 +411,9 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
     final pm = _metodo == 'pago_movil';
     return Form(
       key: _form,
-      child: ListView(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-        children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _resumen(t),
           const _Titulo('Método de pago'),
           Row(children: [
@@ -421,13 +437,29 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
           ]),
           if (pm) ..._pagoMovil(t) else ..._efectivo(t),
           const SizedBox(height: 24),
+          if (_webp == null) ...[
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.lock_rounded, size: 18, color: Fz.variante),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  pm
+                      ? 'Adjunta el comprobante del Pago Móvil para poder enviar.'
+                      : 'Adjunta la foto del recibo o de los billetes para poder enviar.',
+                  textAlign: TextAlign.center,
+                  style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 10),
+          ],
           PopButton(
             label: 'Enviar pago',
             icon: Icons.send_rounded,
             loading: _enviando,
-            onPressed: _convirtiendo ? null : _enviar,
+            onPressed: _convirtiendo || _webp == null ? null : _enviar,
           ),
-        ],
+        ]),
       ),
     );
   }
@@ -444,8 +476,13 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
   }
 
   Widget _resumen(TextTheme t) {
-    final mascotas = _ins!.map((i) => (i['pets'] as Map?)?['nombre'] ?? 'Mascota').join(', ');
-    final j = _ins!.first['jornadas'] as Map?;
+    final v = widget.visita;
+    final mascotas = v != null
+        ? ((v['servicios_domicilio'] as Map?)?['nombre'] as String? ?? 'Visita a domicilio')
+        : _ins!.map((i) => (i['pets'] as Map?)?['nombre'] ?? 'Mascota').join(', ');
+    final j = v != null
+        ? (v['codigo'] == null ? null : {'titulo': 'Visita ${v['codigo']}'})
+        : _ins!.first['jornadas'] as Map?;
     final tasa = _tasa;
     return FzHero(
       title: Money.usd(_totalUsd),
@@ -588,6 +625,9 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
         ]),
       ),
       const _Titulo('Comprobante'),
+      Text('Captura o foto del comprobante del Pago Móvil. Es obligatoria.',
+          textAlign: TextAlign.center, style: t.bodySmall),
+      const SizedBox(height: 10),
       ..._comprobante(t),
     ];
   }
@@ -604,13 +644,20 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              textos.isEmpty ? 'Entrega el monto exacto en dólares el día de la jornada.' : textos.join('\n'),
+              textos.isEmpty
+                  ? (_modoVisita
+                      ? 'Entrega el monto exacto en dólares al veterinario o a la administración.'
+                      : 'Entrega el monto exacto en dólares el día de la jornada.')
+                  : textos.join('\n'),
               style: t.bodyMedium,
             ),
           ),
         ]),
       ),
-      const _Titulo('Comprobante (opcional)'),
+      const _Titulo('Comprobante'),
+      Text('Toma una foto del recibo o de los billetes que entregaste. Es obligatoria.',
+          textAlign: TextAlign.center, style: t.bodySmall),
+      const SizedBox(height: 10),
       ..._comprobante(t),
     ];
   }

@@ -265,7 +265,9 @@ class _JornadaFormScreenState extends State<JornadaFormScreen> {
       appBar: AppBar(title: Text(widget.jornada == null ? 'Nueva jornada' : 'Editar jornada')),
       body: Form(
         key: _form,
-        child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // ---- Portada ----
           FadeSlideIn(
             child: PopCard(
@@ -544,7 +546,7 @@ class _JornadaFormScreenState extends State<JornadaFormScreen> {
             loading: _saving,
             onPressed: _saving || _subiendo ? null : _guardar,
           ),
-        ]),
+        ])),
       ),
     );
   }
