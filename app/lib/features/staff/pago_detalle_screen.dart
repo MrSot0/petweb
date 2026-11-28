@@ -133,7 +133,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle del pago')),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+      body: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         FadeSlideIn(
           child: FzHero(
             leading: FzAvatar(text: iniciales(nombre), size: 52, color: Fz.azul100),
@@ -343,7 +343,7 @@ class _PagoDetalleScreenState extends State<PagoDetalleScreen> {
             Text('Tu nombre y rol quedan registrados', style: t.bodySmall),
           ]),
         ],
-      ]),
+      ])),
     );
   }
 

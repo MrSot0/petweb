@@ -217,7 +217,7 @@ class Data {
     String? telefono,
     String? banco,
     DateTime? fecha,
-    String? comprobantePath,
+    required String comprobantePath,
   }) async {
     final r = await sb.rpc('rpc_registrar_pago', params: {
       'p_inscripciones': inscripciones,
@@ -365,6 +365,184 @@ class Data {
   }
 
   static Future<void> actualizarFotoPerfil(String path) => actualizarPerfil({'avatar_path': path});
+
+
+  // ======================= v0.3 =======================
+
+  // ---------- Citas: visitas a domicilio ----------
+  static Future<List<Map<String, dynamic>>> serviciosDomicilio({bool todos = false}) async {
+    var q = sb.from('servicios_domicilio').select();
+    if (!todos) q = q.eq('activo', true);
+    return List<Map<String, dynamic>>.from(await q.order('orden'));
+  }
+
+  static Future<void> guardarServicioDomicilio(Map<String, dynamic> datos, {int? id}) async {
+    if (id == null) {
+      await sb.from('servicios_domicilio').insert(datos);
+    } else {
+      await sb.from('servicios_domicilio').update(datos).eq('id', id);
+    }
+  }
+
+  /// Visitas del propietario actual (con nombre del servicio y del veterinario).
+  static Future<List<Map<String, dynamic>>> misVisitas() async => List<Map<String, dynamic>>.from(await sb
+      .from('visitas')
+      .select('*, servicios_domicilio(nombre,duracion_min), veterinario:profiles!visitas_veterinario_id_fkey(nombre,telefono,avatar_path), pago:pagos!visitas_pago_fk(estado,metodo,monto_usd)')
+      .eq('owner_id', sb.auth.currentUser!.id)
+      .order('created_at', ascending: false));
+
+  /// Visitas para el equipo. estado opcional; veterinarioId para las asignadas a un veterinario.
+  static Future<List<Map<String, dynamic>>> visitas({String? estado, String? veterinarioId}) async {
+    var q = sb.from('visitas').select(
+        '*, servicios_domicilio(nombre,duracion_min), propietario:profiles!visitas_owner_id_fkey(nombre,telefono,avatar_path), veterinario:profiles!visitas_veterinario_id_fkey(nombre,telefono), pago:pagos!visitas_pago_fk(estado,metodo,monto_usd,referencia)');
+    if (estado != null) q = q.eq('estado', estado);
+    if (veterinarioId != null) q = q.eq('veterinario_id', veterinarioId);
+    return List<Map<String, dynamic>>.from(await q.order('fecha_preferida').order('created_at'));
+  }
+
+  /// Mascotas de una visita (por ids). El equipo puede leerlas por RLS.
+  static Future<List<Pet>> mascotasPorIds(List<String> ids) async =>
+      ids.isEmpty ? [] : (await sb.from('pets').select().inFilter('id', ids)).map(Pet.new).toList();
+
+  static Future<Map<String, dynamic>> solicitarVisita({
+    required int servicioId,
+    required List<String> petIds,
+    String? motivo,
+    required String direccion,
+    String? referencia,
+    String? mapsUrl,
+    double? lat,
+    double? lng,
+    required DateTime fecha,
+    required String franja, // manana | tarde
+  }) async =>
+      Map<String, dynamic>.from(await sb.rpc('rpc_solicitar_visita', params: {
+        'p_servicio': servicioId,
+        'p_pets': petIds,
+        'p_motivo': motivo,
+        'p_direccion': direccion,
+        'p_referencia': referencia,
+        'p_maps_url': mapsUrl,
+        'p_lat': lat,
+        'p_lng': lng,
+        'p_fecha': _d(fecha),
+        'p_franja': franja,
+      }) as Map);
+
+  /// Admin: confirma fecha/hora, veterinario y precio.
+  static Future<void> gestionarVisita(String id, {required DateTime fechaHora, String? veterinarioId, double? precio}) =>
+      sb.rpc('rpc_gestionar_visita', params: {
+        'p_id': id,
+        'p_fecha_hora': fechaHora.toUtc().toIso8601String(),
+        'p_veterinario': veterinarioId,
+        'p_precio': precio,
+      });
+
+  /// Veterinario asignado: en_camino | en_atencion | finalizada (con informe).
+  static Future<void> estadoVisita(String id, String estado, {String? informe}) =>
+      sb.rpc('rpc_estado_visita', params: {'p_id': id, 'p_estado': estado, 'p_informe': informe});
+
+  static Future<void> cancelarVisita(String id, String motivo) =>
+      sb.rpc('rpc_cancelar_visita', params: {'p_id': id, 'p_motivo': motivo});
+
+  static Future<Map<String, dynamic>> registrarPagoVisita({
+    required String visitaId,
+    required String metodo,
+    String? referencia,
+    String? telefono,
+    String? banco,
+    DateTime? fecha,
+    required String comprobantePath,
+  }) async =>
+      Map<String, dynamic>.from(await sb.rpc('rpc_registrar_pago_visita', params: {
+        'p_visita': visitaId,
+        'p_metodo': metodo,
+        'p_referencia': referencia,
+        'p_telefono': telefono,
+        'p_banco': banco,
+        'p_fecha': _d(fecha ?? DateTime.now()),
+        'p_comprobante': comprobantePath,
+      }) as Map);
+
+  /// Personas con rol cirujano (para asignar visitas).
+  static Future<List<Map<String, dynamic>>> cirujanos() async {
+    final roles = await sb.from('user_roles').select('user_id').eq('rol', 'cirujano');
+    final ids = roles.map((r) => r['user_id'] as String).toList();
+    if (ids.isEmpty) return [];
+    return List<Map<String, dynamic>>.from(
+        await sb.from('profiles').select('id,nombre,telefono,avatar_path').inFilter('id', ids).order('nombre'));
+  }
+
+  // ---------- Honorarios de cirujanos ----------
+  static Future<Map<String, dynamic>> misHonorarios([String? cirujanoId]) async =>
+      Map<String, dynamic>.from(await sb.rpc('rpc_mis_honorarios', params: {'p_cirujano': cirujanoId}) as Map);
+
+  static Future<List<Map<String, dynamic>>> honorariosResumen() async =>
+      List<Map<String, dynamic>>.from((await sb.rpc('rpc_honorarios_resumen') as List).map((e) => Map<String, dynamic>.from(e as Map)));
+
+  static Future<int> pagarHonorarios(String cirujanoId) async =>
+      await sb.rpc('rpc_pagar_honorarios', params: {'p_cirujano': cirujanoId}) as int;
+
+  /// Tarifas por cirugía (admin las edita): servicio, especie, sexo (null = ambos), monto_usd.
+  static Future<List<Map<String, dynamic>>> tarifasHonorarios() async =>
+      List<Map<String, dynamic>>.from(await sb.from('honorarios').select().order('servicio').order('especie').order('sexo'));
+
+  static Future<void> guardarTarifaHonorario(int id, double monto) =>
+      sb.from('honorarios').update({'monto_usd': monto}).eq('id', id);
+
+  // ---------- Notificaciones ----------
+  static Future<List<Map<String, dynamic>>> notificaciones() async => List<Map<String, dynamic>>.from(await sb
+      .from('notificaciones')
+      .select()
+      .eq('user_id', sb.auth.currentUser!.id)
+      .order('created_at', ascending: false)
+      .limit(60));
+
+  static Future<void> marcarNotificacionesLeidas() => sb
+      .from('notificaciones')
+      .update({'leida': true})
+      .eq('user_id', sb.auth.currentUser!.id)
+      .eq('leida', false);
+
+  // ---------- Soporte ----------
+  static Future<List<Map<String, dynamic>>> soporteUsuarios([String? buscar]) async =>
+      List<Map<String, dynamic>>.from((await sb.rpc('rpc_soporte_usuarios',
+              params: {'p_buscar': (buscar == null || buscar.trim().isEmpty) ? null : buscar.trim()}) as List)
+          .map((e) => Map<String, dynamic>.from(e as Map)));
+
+  /// accion: reiniciar_clave (devuelve clave_temporal) | enviar_recuperacion | confirmar_correo
+  static Future<Map<String, dynamic>> soporteAccion(String accion, String usuarioId) async {
+    final r = await sb.functions.invoke('soporte-usuarios', body: {'accion': accion, 'usuario_id': usuarioId});
+    final d = Map<String, dynamic>.from(r.data as Map);
+    if (d['error'] != null) throw Exception(d['error']);
+    return d;
+  }
+
+  /// Soporte o admin editan datos básicos de un usuario.
+  static Future<void> editarPerfilDe(String userId, Map<String, dynamic> cambios) =>
+      sb.from('profiles').update(cambios).eq('id', userId);
+
+  static Future<List<Map<String, dynamic>>> mascotasDe(String userId) async =>
+      List<Map<String, dynamic>>.from(await sb.from('pets').select().eq('owner_id', userId).order('created_at'));
+
+  static Future<List<Map<String, dynamic>>> inscripcionesDe(String userId) async => List<Map<String, dynamic>>.from(await sb
+      .from('inscripciones')
+      .select('*, pets(nombre), jornadas(titulo,fecha_inicio)')
+      .eq('owner_id', userId)
+      .order('created_at', ascending: false));
+
+  static Future<List<Map<String, dynamic>>> pagosDe(String userId) async => List<Map<String, dynamic>>.from(
+      await sb.from('pagos').select('*, jornadas(titulo)').eq('owner_id', userId).order('created_at', ascending: false));
+
+  static Future<List<Map<String, dynamic>>> bitacoraSoporte([String? userId]) async {
+    var q = sb.from('soporte_acciones').select('*, actor:profiles!soporte_acciones_actor_id_fkey(nombre)');
+    if (userId != null) q = q.eq('usuario_id', userId);
+    return List<Map<String, dynamic>>.from(await q.order('created_at', ascending: false).limit(50));
+  }
+
+  /// WhatsApp de soporte de FAUNAZULIA.
+  static const whatsappSoporte = '04146250848';
+  static const whatsappSoporteUrl = 'https://wa.me/584146250848';
 
   static String _d(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

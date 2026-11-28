@@ -5,11 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config.dart';
 import 'core/data.dart';
+import 'core/notificaciones.dart';
 import 'core/theme.dart';
 import 'core/widgets.dart';
 import 'features/auth/login_screen.dart';
 import 'features/owner/owner_shell.dart';
 import 'features/staff/staff_shell.dart';
+import 'features/support/support_shell.dart';
 import 'features/surgeon/surgeon_shell.dart';
 
 Future<void> main() async {
@@ -54,7 +56,7 @@ class AuthGate extends StatelessWidget {
 }
 
 /// Modo de la app y rol de equipo del usuario.
-/// Rol de equipo: 'admin' | 'contador' | 'cirujano' | null (solo propietario).
+/// Rol de equipo: 'admin' | 'contador' | 'cirujano' | 'soporte' | null (solo propietario).
 /// Modo: el propietario siempre está disponible; el equipo puede alternar.
 class AppMode extends InheritedWidget {
   const AppMode({super.key, required this.rol, required this.staff, required this.toggle, required this.reload,
@@ -68,6 +70,7 @@ class AppMode extends InheritedWidget {
   bool get isAdmin => rol == 'admin';
   bool get isContador => rol == 'contador';
   bool get isCirujano => rol == 'cirujano';
+  bool get isSoporte => rol == 'soporte';
   bool get canStaff => rol != null;
   Set<String> get roles => {'propietario', ?rol};
 
@@ -100,18 +103,23 @@ class _RoleGateState extends State<RoleGate> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _load(first: true);
+    Notificaciones.iniciar();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    Notificaciones.detener();
     super.dispose();
   }
 
   // Si un admin cambió el rol, se aplica al volver a la app.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _load();
+    if (state == AppLifecycleState.resumed) {
+      _load();
+      Notificaciones.refrescarContador();
+    }
   }
 
   Future<void> _load({bool first = false}) async {
@@ -149,6 +157,8 @@ class _RoleGateState extends State<RoleGate> with WidgetsBindingObserver {
       shell = const OwnerShell();
     } else if (_rol == 'cirujano') {
       shell = const SurgeonShell();
+    } else if (_rol == 'soporte') {
+      shell = const SupportShell();
     } else {
       shell = const StaffShell();
     }

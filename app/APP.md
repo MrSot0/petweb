@@ -95,3 +95,46 @@ Tabla `jornadas`: columnas nuevas `maps_url`, `imagen_path`. Tabla `pets`: `foto
 - Propietario: Inicio · Jornadas · Mascotas · Pagos · Ajustes (`features/settings/settings_screen.dart`).
 - Equipo (admin y contador): Pagos · Jornadas · Escanear · Tasa · Ajustes.
 - Cirujano: Jornadas (`features/surgeon/surgeon_jornadas_screen.dart`) · Escanear · Estadísticas · Ajustes.
+
+---
+# v0.3 (testing 2 del cliente) — lee esto además de v0.1 y v0.2
+
+## Reglas nuevas
+- Solo se inscriben mascotas SIN esterilizar (el servidor lo bloquea; en la app ni se ofrecen las esterilizadas).
+- El comprobante es OBLIGATORIO en todos los pagos (Pago Móvil y efectivo). `Data.registrarPago(..., comprobantePath:)` es requerido.
+- WhatsApp de soporte: `Data.whatsappSoporte` = 0414-625-0848 (`Data.whatsappSoporteUrl`).
+- El CÓDIGO de inscripción/visita (FZ-…/VD-…) debe poder COPIARSE en toda pantalla donde aparezca (icono copiar → Clipboard + snackbar "Código copiado").
+- CENTRAR los elementos de los menús internos (encabezados, opciones de listas de menú en Ajustes, pestañas, estados).
+- SCROLL: en pantallas de detalle (una sola ficha larga) usa `SingleChildScrollView` + `Column`, NO `ListView(children: [...])`:
+  se reprodujo un bug en el detalle del pago donde, tras bajar al final, el scroll se bloqueaba y no dejaba subir.
+  `ListView.builder` está bien para listas de elementos repetidos.
+
+## Roles (5)
+propietario (todos), cirujano (también veterinario de visitas a domicilio), contador, admin, soporte.
+`AppMode.of(context).isSoporte`. Ingresos SOLO para admin y contador (el servidor ya no los envía a otros:
+si `ingresos` viene null, NO muestres nada de ingresos).
+
+## Navegación v0.3
+- Propietario: Inicio · Jornadas · Citas (`features/citas/citas_screen.dart`) · Mascotas · Ajustes. Mis pagos se abre desde Inicio, Citas y Ajustes.
+- Equipo: Pagos · Jornadas · Citas (`features/staff/admin_visitas_screen.dart`) · Escanear · Ajustes. La Tasa se abre desde Pagos y Ajustes.
+- Cirujano: Jornadas · Escanear · Visitas (`features/surgeon/surgeon_visitas_screen.dart`) · Honorarios (`features/surgeon/honorarios_screen.dart`) · Ajustes.
+- Soporte: Usuarios (`features/support/soporte_usuarios_screen.dart`) · Ajustes.
+
+## Datos nuevos (`Data.*`)
+Citas/visitas a domicilio: `serviciosDomicilio({todos})`, `guardarServicioDomicilio(datos, id:)`, `misVisitas()`, `visitas({estado, veterinarioId})`
+(filas con `servicios_domicilio{nombre,duracion_min}`, `propietario{nombre,telefono,avatar_path}`, `veterinario{nombre,telefono}`,
+`pago{estado,metodo,monto_usd,referencia}`; columnas: id, codigo (VD-…), owner_id, servicio_id, pet_ids[], motivo, direccion,
+referencia_lugar, maps_url, lat, lng, fecha_preferida, franja (manana|tarde), fecha_hora, veterinario_id, precio_usd (null = por confirmar),
+estado (solicitada|confirmada|en_camino|en_atencion|finalizada|cancelada), informe, motivo_cancelacion, pago_id),
+`mascotasPorIds(ids)`, `solicitarVisita(...)`, `gestionarVisita(id, fechaHora:, veterinarioId:, precio:)` (admin),
+`estadoVisita(id, estado, informe:)` (veterinario asignado), `cancelarVisita(id, motivo)`, `registrarPagoVisita(...)`, `cirujanos()`.
+Honorarios: `misHonorarios([cirujanoId])` → {total_usd, pendiente_usd, pagado_usd, cantidad, cirugias[{id, fecha, honorario_usd,
+pagado_at, especie, sexo, patologia, mascota, jornada, jornada_id, codigo}]}, `honorariosResumen()` → [{cirujano_id, nombre,
+avatar_path, cantidad, pendiente_usd, pagado_usd}], `pagarHonorarios(cirujanoId)`, `tarifasHonorarios()`, `guardarTarifaHonorario(id, monto)`.
+Notificaciones: `core/notificaciones.dart` → `Notificaciones.noLeidas` (ValueNotifier), `marcarLeidas()`, `activas()`, `setActivas(bool)`,
+`pedirPermiso()`; `Data.notificaciones()`.
+Soporte: `soporteUsuarios([buscar])` → [{id, nombre, email, cedula, telefono, avatar_path, created_at, confirmado, ultimo_acceso, rol,
+mascotas, inscripciones, pagos_pendientes}], `soporteAccion('reiniciar_clave'|'enviar_recuperacion'|'confirmar_correo', userId)`
+(reiniciar_clave devuelve `clave_temporal`), `editarPerfilDe(userId, cambios)`, `mascotasDe`, `inscripcionesDe`, `pagosDe`, `bitacoraSoporte([userId])`.
+Pagos: la fila puede tener `visita_id` en vez de `jornada_id` (pago de una visita a domicilio); `jornadas` puede venir null.
+Estadísticas: `estadisticas()` global trae además `visitas{estado: n}` e `ingresos.honorarios_usd`.
