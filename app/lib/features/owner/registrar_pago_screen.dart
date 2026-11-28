@@ -33,6 +33,117 @@ const _bancos = <String>[
 final _telRe = RegExp(r'^0(412|414|416|422|424|426)\d{7}$');
 final _refRe = RegExp(r'^\d{4,12}$');
 
+/// Deja solo dígitos (no rechaza lo pegado: lo limpia). En teléfonos convierte +58 414… en 0414….
+class _SoloDigitos extends TextInputFormatter {
+  _SoloDigitos(this.max, {this.telefono = false});
+  final int max;
+  final bool telefono;
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var d = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (telefono) d = _normalizarTel(d);
+    if (d.length > max) d = d.substring(0, max);
+    if (d == newValue.text) return newValue;
+    return TextEditingValue(text: d, selection: TextSelection.collapsed(offset: d.length));
+  }
+}
+
+String _normalizarTel(String d) {
+  if (d.startsWith('58') && d.length == 12) return '0${d.substring(2)}';
+  if (d.length == 10 && d.startsWith('4')) return '0$d';
+  return d;
+}
+
+/// Monto en formato venezolano ("1.234,56", "1234.56", "1234,5") → double.
+double? _parseMonto(String s) {
+  var x = s.trim().replaceAll(RegExp(r'[^\d.,]'), '');
+  if (x.isEmpty) return null;
+  if (x.contains(',')) {
+    x = x.replaceAll('.', '').replaceAll(',', '.');
+  } else if (RegExp(r'\.\d{3}(\.|$)').hasMatch(x) && !RegExp(r'\.\d{1,2}$').hasMatch(x)) {
+    x = x.replaceAll('.', '');
+  }
+  return double.tryParse(x);
+}
+
+String _montoTexto(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
+
+/// Datos encontrados en el texto de un SMS o notificación del banco.
+class DatosPagoPegados {
+  DatosPagoPegados({this.referencia, this.telefono, this.monto, this.banco});
+  final String? referencia;
+  final String? telefono;
+  final double? monto;
+  final String? banco;
+  bool get vacio => referencia == null && telefono == null && monto == null && banco == null;
+}
+
+const _aliasBancos = <String, List<String>>{
+  '0102': ['banco de venezuela', 'bdv', '0102'],
+  '0104': ['venezolano de credito', 'venezolano de crédito', '0104'],
+  '0105': ['mercantil', '0105'],
+  '0108': ['provincial', 'bbva', '0108'],
+  '0114': ['bancaribe', '0114'],
+  '0115': ['exterior', '0115'],
+  '0128': ['caroni', 'caroní', '0128'],
+  '0134': ['banesco', '0134'],
+  '0138': ['banco plaza', '0138'],
+  '0151': ['bfc', 'fondo comun', 'fondo común', '0151'],
+  '0156': ['100% banco', '100 % banco', '0156'],
+  '0163': ['tesoro', '0163'],
+  '0171': ['banco activo', '0171'],
+  '0172': ['bancamiga', '0172'],
+  '0174': ['banplus', '0174'],
+  '0175': ['bicentenario', '0175'],
+  '0177': ['banfanb', '0177'],
+  '0191': ['bnc', 'nacional de credito', 'nacional de crédito', '0191'],
+};
+
+/// Extrae referencia, teléfono, monto en Bs y banco del texto pegado.
+DatosPagoPegados extraerDatosPago(String texto) {
+  final tx = texto.replaceAll('\n', ' ');
+  final low = tx.toLowerCase();
+
+  // Teléfono 04xx… (o +58 4xx…), con o sin separadores.
+  String? tel;
+  final tm = RegExp(r'(?<!\d)(?:\+?58[\s.-]?|0)(4(?:12|14|16|22|24|26))[\s.-]?(\d{3})[\s.-]?(\d{4})(?!\d)').firstMatch(tx);
+  if (tm != null) tel = '0${tm.group(1)}${tm.group(2)}${tm.group(3)}';
+
+  // Referencia: 4–12 dígitos tras Ref / Referencia / Nro / Operación / Comprobante.
+  String? ref;
+  final rr = RegExp(
+    r'(?:ref(?:erencia)?|nro|n[°º]|n[uú]m(?:ero)?|operaci[oó]n|comprobante|confirmaci[oó]n)\.?\s*'
+    r'(?:de\s+)?(?:operaci[oó]n|ref(?:erencia)?)?\.?\s*[:#]?\s*(\d[\d\s-]{2,16}\d)',
+    caseSensitive: false,
+  );
+  for (final m in rr.allMatches(tx)) {
+    final d = m.group(1)!.replaceAll(RegExp(r'\D'), '');
+    if (d.length < 4 || d.length > 12) continue;
+    if (tel != null && (d == tel || d == tel.substring(1))) continue;
+    if (_telRe.hasMatch(_normalizarTel(d))) continue;
+    ref = d;
+    break;
+  }
+
+  // Monto en Bs: "Bs 1.234,56", "Bs. 1234,56", "1.234,56 Bs", "monto: 1234,56".
+  double? monto;
+  final mm = RegExp(r'(?:bs\.?\s*s?\.?|ves|monto(?:\s+de)?)\s*[:]?\s*(\d[\d.,]*\d|\d)', caseSensitive: false).firstMatch(tx) ??
+      RegExp(r'(\d[\d.,]*\d|\d)\s*(?:bs\b|bs\.|ves\b)', caseSensitive: false).firstMatch(tx);
+  if (mm != null) monto = _parseMonto(mm.group(1)!);
+  if (monto != null && monto <= 0) monto = null;
+
+  // Banco por nombre o código.
+  String? banco;
+  for (final e in _aliasBancos.entries) {
+    if (e.value.any((a) => a.length == 4 ? RegExp('(?<!\\d)$a(?!\\d)').hasMatch(low) : low.contains(a))) {
+      banco = _bancos.firstWhere((b) => b.startsWith(e.key));
+      break;
+    }
+  }
+  return DatosPagoPegados(referencia: ref, telefono: tel, monto: monto, banco: banco);
+}
+
 class RegistrarPagoScreen extends StatefulWidget {
   const RegistrarPagoScreen({super.key, required this.inscripcionIds});
   final List<String> inscripcionIds;
@@ -45,6 +156,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
   final _form = GlobalKey<FormState>();
   final _ref = TextEditingController();
   final _tel = TextEditingController();
+  final _monto = TextEditingController();
 
   List<Map<String, dynamic>>? _ins;
   List<Map<String, dynamic>> _cobro = [];
@@ -69,6 +181,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
   void dispose() {
     _ref.dispose();
     _tel.dispose();
+    _monto.dispose();
     super.dispose();
   }
 
@@ -115,6 +228,102 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
       if (mounted) setState(() => _convirtiendo = false);
     }
   }
+
+  Future<String?> _leerPortapapeles() async {
+    try {
+      final d = await Clipboard.getData(Clipboard.kTextPlain);
+      final tx = d?.text?.trim();
+      if (tx == null || tx.isEmpty) {
+        if (mounted) showInfo(context, 'No hay texto copiado.');
+        return null;
+      }
+      return tx;
+    } catch (_) {
+      if (mounted) showInfo(context, 'No pudimos leer lo que copiaste.');
+      return null;
+    }
+  }
+
+  Future<void> _pegarEn(TextEditingController c, {required bool telefono}) async {
+    final tx = await _leerPortapapeles();
+    if (tx == null) return;
+    final datos = extraerDatosPago(tx);
+    String v;
+    if (telefono) {
+      v = datos.telefono ?? _normalizarTel(tx.replaceAll(RegExp(r'\D'), ''));
+      if (v.length > 11) v = v.substring(0, 11);
+    } else {
+      final solo = tx.replaceAll(RegExp(r'\D'), '');
+      v = datos.referencia ?? (solo.length > 12 ? solo.substring(solo.length - 12) : solo);
+    }
+    setState(() => c.text = v);
+    _form.currentState?.validate();
+  }
+
+  Future<void> _pegarMonto() async {
+    final tx = await _leerPortapapeles();
+    if (tx == null) return;
+    final m = extraerDatosPago(tx).monto ?? _parseMonto(tx);
+    if (m == null) {
+      if (mounted) showInfo(context, 'No encontramos un monto en lo que copiaste.');
+      return;
+    }
+    setState(() => _monto.text = _montoTexto(m));
+  }
+
+  Future<void> _pegarDatos() async {
+    final tx = await _leerPortapapeles();
+    if (tx == null || !mounted) return;
+    final d = extraerDatosPago(tx);
+    if (d.vacio) {
+      showInfo(context, 'No encontramos datos del pago en lo que copiaste. Escríbelos a mano.');
+      return;
+    }
+    final t = Theme.of(context).textTheme;
+    Widget fila(IconData ic, String l, String? v) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Icon(v == null ? Icons.remove_circle_outline_rounded : ic, size: 20, color: v == null ? Fz.variante : Fz.azul),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l, style: t.bodySmall)),
+            Text(v ?? 'No encontrado', style: v == null ? t.bodySmall : t.titleSmall),
+          ]),
+        );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.content_paste_search_rounded, size: 40, color: Fz.azul),
+        title: const Text('Datos encontrados'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Revisa que coincidan con tu comprobante.', textAlign: TextAlign.center, style: t.bodyMedium),
+          const SizedBox(height: 10),
+          fila(Icons.tag_rounded, 'Referencia', d.referencia),
+          fila(Icons.phone_android_rounded, 'Teléfono', d.telefono),
+          fila(Icons.payments_rounded, 'Monto', d.monto == null ? null : 'Bs ${_montoTexto(d.monto!)}'),
+          fila(Icons.account_balance_rounded, 'Banco', d.banco),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Usar estos datos')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() {
+      if (d.referencia != null) _ref.text = d.referencia!;
+      if (d.telefono != null) _tel.text = d.telefono!;
+      if (d.monto != null) _monto.text = _montoTexto(d.monto!);
+      if (d.banco != null) _banco = d.banco;
+    });
+    _form.currentState?.validate();
+  }
+
+  Widget _botonPegar(VoidCallback onTap, String que) => IconButton(
+        tooltip: 'Pegar $que',
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        icon: const Icon(Icons.content_paste_rounded),
+        onPressed: onTap,
+      );
 
   Future<void> _elegirFecha() async {
     final hoy = DateTime.now();
@@ -190,7 +399,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
           _resumen(t),
-          const SectionTitle('Método de pago'),
+          const _Titulo('Método de pago'),
           Row(children: [
             Expanded(
               child: _MetodoCard(
@@ -223,28 +432,43 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
     );
   }
 
+  /// Compara el monto escrito con el total esperado en Bs (solo como ayuda).
+  String _ayudaMonto() {
+    final tasa = _tasa;
+    final esperado = tasa == null ? null : Money.aBs(_totalUsd, tasa.valor);
+    if (esperado == null) return 'Para que compares con tu comprobante.';
+    final m = _parseMonto(_monto.text);
+    if (m == null) return 'Total esperado: ${Money.bs(esperado)}';
+    if ((m - esperado).abs() <= 1) return 'Coincide con el total esperado (${Money.bs(esperado)}).';
+    return 'Ojo: el total esperado es ${Money.bs(esperado)}.';
+  }
+
   Widget _resumen(TextTheme t) {
     final mascotas = _ins!.map((i) => (i['pets'] as Map?)?['nombre'] ?? 'Mascota').join(', ');
     final j = _ins!.first['jornadas'] as Map?;
     final tasa = _tasa;
-    return PopCard(
-      color: Fz.azulPastel,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Total a pagar', style: t.titleSmall),
-        Text(Money.usd(_totalUsd), style: Fz.display(36)),
-        if (tasa != null) Text(Money.bs(Money.aBs(_totalUsd, tasa.valor)), style: t.titleMedium),
+    return FzHero(
+      title: Money.usd(_totalUsd),
+      subtitle: 'Total a pagar',
+      leading: const Icon(Icons.payments_rounded, size: 32, color: Fz.tarjeta),
+      child: Column(children: [
+        if (tasa != null)
+          Text(Money.bs(Money.aBs(_totalUsd, tasa.valor)),
+              textAlign: TextAlign.center, style: t.titleLarge?.copyWith(color: Fz.tarjeta)),
         const SizedBox(height: 4),
         Text(
+          textAlign: TextAlign.center,
           tasa == null
               ? 'Tasa no disponible; el monto en Bs se confirma al pagar.'
               : tasa.vieja
                   ? 'Tasa del ${Money.fecha(tasa.fechaValor).substring(0, 5)}, puede variar.'
                   : 'Tasa BCV del euro ${Money.tasa(tasa.valor)} · fecha valor ${Money.fecha(tasa.fechaValor)}',
-          style: t.bodySmall,
+          style: t.bodySmall?.copyWith(color: Fz.azul50),
         ),
-        const Divider(height: 20),
-        Text(mascotas, style: t.bodyMedium),
-        if (j != null) Text(j['titulo'] as String? ?? '', style: t.bodySmall),
+        const SizedBox(height: 10),
+        Text(mascotas, textAlign: TextAlign.center, style: t.titleSmall?.copyWith(color: Fz.tarjeta)),
+        if (j != null)
+          Text(j['titulo'] as String? ?? '', textAlign: TextAlign.center, style: t.bodySmall?.copyWith(color: Fz.azul50)),
       ]),
     );
   }
@@ -252,10 +476,10 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
   List<Widget> _pagoMovil(TextTheme t) {
     final datos = _cobro.where((d) => d['tipo'] == 'pago_movil').toList();
     return [
-      const SectionTitle('Paga a la organización'),
+      const _Titulo('Paga a la organización'),
       if (datos.isEmpty)
         PopCard(
-          color: Fz.rosaSuave,
+          color: Fz.azul50,
           shadow: false,
           child: Row(children: [
             const Icon(Icons.info_outline_rounded),
@@ -267,6 +491,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
         for (final d in datos) ...[
           PopCard(
             shadow: false,
+            color: Fz.azul50,
             padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
             child: Column(children: [
               for (final e in [
@@ -281,22 +506,61 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
           ),
           const SizedBox(height: 10),
         ],
-      const SectionTitle('Datos de tu pago'),
+      const _Titulo('Datos de tu pago'),
+      PopButton.tonal(
+        label: 'Pegar datos del pago',
+        icon: Icons.content_paste_go_rounded,
+        onPressed: _enviando ? null : _pegarDatos,
+      ),
+      const SizedBox(height: 6),
+      Text('Copia el SMS o la notificación de tu banco y tócalo: llenamos referencia, teléfono, monto y banco.',
+          textAlign: TextAlign.center, style: t.bodySmall),
+      const SizedBox(height: 14),
       TextFormField(
         controller: _ref,
         keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(12)],
-        decoration: const InputDecoration(labelText: 'Número de referencia', helperText: 'Entre 4 y 12 dígitos'),
+        enableInteractiveSelection: true,
+        inputFormatters: [_SoloDigitos(12)],
+        decoration: InputDecoration(
+          labelText: 'Número de referencia',
+          helperText: 'Entre 4 y 12 dígitos',
+          suffixIcon: _botonPegar(() => _pegarEn(_ref, telefono: false), 'referencia'),
+        ),
         validator: (v) => _refRe.hasMatch((v ?? '').trim()) ? null : 'La referencia debe tener de 4 a 12 dígitos',
       ),
       const SizedBox(height: 14),
       TextFormField(
         controller: _tel,
         keyboardType: TextInputType.phone,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)],
-        decoration: const InputDecoration(labelText: 'Teléfono desde el que pagaste', hintText: '04141234567'),
+        enableInteractiveSelection: true,
+        inputFormatters: [_SoloDigitos(11, telefono: true)],
+        decoration: InputDecoration(
+          labelText: 'Teléfono desde el que pagaste',
+          hintText: '04141234567',
+          suffixIcon: _botonPegar(() => _pegarEn(_tel, telefono: true), 'teléfono'),
+        ),
         validator: (v) =>
             _telRe.hasMatch((v ?? '').trim()) ? null : 'Escribe un teléfono válido, por ejemplo 04141234567',
+      ),
+      const SizedBox(height: 14),
+      TextFormField(
+        controller: _monto,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        enableInteractiveSelection: true,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          labelText: 'Monto pagado en Bs (opcional)',
+          prefixText: 'Bs ',
+          helperText: _ayudaMonto(),
+          helperMaxLines: 2,
+          suffixIcon: _botonPegar(_pegarMonto, 'monto'),
+        ),
+        validator: (v) {
+          final s = (v ?? '').trim();
+          if (s.isEmpty) return null;
+          final m = _parseMonto(s);
+          return m == null || m <= 0 ? 'Escribe el monto, por ejemplo 1.234,56' : null;
+        },
       ),
       const SizedBox(height: 14),
       DropdownButtonFormField<String>(
@@ -323,7 +587,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
           const Icon(Icons.edit_calendar_rounded),
         ]),
       ),
-      const SectionTitle('Comprobante'),
+      const _Titulo('Comprobante'),
       ..._comprobante(t),
     ];
   }
@@ -332,7 +596,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
     final datos = _cobro.where((d) => d['tipo'] == 'efectivo_divisa').toList();
     final textos = datos.map((d) => d['instrucciones'] as String?).whereType<String>().where((s) => s.isNotEmpty);
     return [
-      const SectionTitle('Cómo pagar'),
+      const _Titulo('Cómo pagar'),
       PopCard(
         shadow: false,
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -346,7 +610,7 @@ class _RegistrarPagoScreenState extends State<RegistrarPagoScreen> {
           ),
         ]),
       ),
-      const SectionTitle('Comprobante (opcional)'),
+      const _Titulo('Comprobante (opcional)'),
       ..._comprobante(t),
     ];
   }
@@ -413,14 +677,16 @@ class _MetodoCard extends StatelessWidget {
         button: true,
         child: PopCard(
           onTap: onTap,
-          color: selected ? Fz.rosa : Fz.cremaClaro,
+          color: selected ? Fz.azul : Fz.tarjeta,
           shadow: selected,
           child: SizedBox(
-            height: 84,
+            height: 80,
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(selected ? Icons.check_circle_rounded : icon, size: 28),
+              Icon(selected ? Icons.check_circle_rounded : icon, size: 26, color: selected ? Fz.tarjeta : Fz.tinta),
               const SizedBox(height: 4),
-              Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: selected ? Fz.tarjeta : Fz.tinta)),
             ]),
           ),
         ),
@@ -481,4 +747,15 @@ class _PagoEnviado extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Titulo extends StatelessWidget {
+  const _Titulo(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+        child: Text(text, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+      );
 }

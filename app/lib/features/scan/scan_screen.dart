@@ -46,7 +46,7 @@ class _ScanScreenState extends State<ScanScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // En el IndexedStack la pestaña oculta queda con TickerMode desactivado: apagamos la cámara.
-    if (!TickerMode.of(context) && _ctrl != null && !_enFicha) _cerrarCamara();
+    if (!TickerMode.valuesOf(context).enabled && _ctrl != null && !_enFicha) _cerrarCamara();
   }
 
   @override
@@ -59,10 +59,11 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _cargarStats() async {
     try {
       final s = await Data.estadisticas();
-      if (mounted) setState(() {
-            _stats = s;
-            _statsError = null;
-          });
+      if (!mounted) return;
+      setState(() {
+        _stats = s;
+        _statsError = null;
+      });
     } catch (e) {
       if (mounted) setState(() => _statsError = e);
     }
@@ -74,7 +75,7 @@ class _ScanScreenState extends State<ScanScreen> {
       _error = null;
       _ctrl = MobileScannerController(
         formats: const [BarcodeFormat.qrCode],
-        detectionSpeed: DetectionSpeed.noDuplicates,
+        detectionSpeed: DetectionSpeed.normal,
       );
     });
   }
@@ -132,7 +133,7 @@ class _ScanScreenState extends State<ScanScreen> {
       _ultimoAt = DateTime.now();
       _cargarStats();
       if (_ctrl != null && _ctrl == c) {
-        if (TickerMode.of(context)) {
+        if (TickerMode.valuesOf(context).enabled) {
           try {
             await c!.start();
           } catch (_) {}
